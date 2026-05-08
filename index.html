@@ -559,6 +559,49 @@ td:hover .td-note-edit-btn { display: inline-block; }
   </div>
   <div style="flex:1;"></div>
   <a href="https://kraken.srv.tools/LookupPurchase" target="_blank" style="font-size:11px;font-family:var(--mono);color:var(--muted2);text-decoration:none;border:1px solid var(--border);padding:5px 12px;border-radius:4px;transition:all 0.15s;white-space:nowrap;" onmouseover="this.style.background='rgba(255,255,255,0.06)'" onmouseout="this.style.background=''">Kraken ↗</a>
+  <button id="soundToggleBtn" onclick="toggleSound()" title="點擊切換音效模式 (預設嗶聲 / 自訂音檔 / 關閉)" style="font-size:11px;padding:5px 12px;white-space:nowrap;border:1px solid var(--border);background:var(--surface2);color:var(--muted2);border-radius:4px;cursor:pointer;">🔔 Beep</button>
+  <div style="position:relative;">
+    <button id="soundSettingsBtn" onclick="toggleSoundPanel(event)" title="音效設定" style="font-size:11px;padding:5px 8px;white-space:nowrap;border:1px solid var(--border);background:var(--surface2);color:var(--muted2);border-radius:4px;cursor:pointer;">⚙</button>
+    <div id="soundPanel" style="display:none;position:absolute;top:calc(100% + 6px);right:0;width:360px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:12px;box-shadow:0 6px 24px rgba(0,0,0,0.35);z-index:1000;font-size:11px;color:var(--text);">
+      <div style="font-weight:600;color:var(--muted2);margin-bottom:10px;letter-spacing:0.04em;">🔊 音效設定</div>
+
+      <!-- 音量 -->
+      <div style="margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;color:var(--muted2);">
+          <span>音量</span>
+          <span id="volumeValue" style="font-family:var(--mono);">70%</span>
+        </div>
+        <input id="volumeSlider" type="range" min="0" max="100" value="70" oninput="onVolumeChange(this.value)" onchange="playAlertSound(1)" style="width:100%;cursor:pointer;">
+      </div>
+
+      <!-- 兩階段狀態 -->
+      <div style="margin-bottom:10px;display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+        <div style="border:1px solid var(--border);border-radius:4px;padding:6px 8px;background:var(--surface);">
+          <div style="color:var(--muted);font-size:10px;margin-bottom:2px;">① 9 分鐘提示</div>
+          <div id="slot1Display" style="color:var(--text);font-family:var(--mono);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">預設嗶聲</div>
+        </div>
+        <div style="border:1px solid var(--border);border-radius:4px;padding:6px 8px;background:var(--surface);">
+          <div style="color:var(--muted);font-size:10px;margin-bottom:2px;">② 19 分鐘提示</div>
+          <div id="slot2Display" style="color:var(--text);font-family:var(--mono);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">預設嗶聲</div>
+        </div>
+      </div>
+
+      <!-- 音檔列表 -->
+      <div style="margin-bottom:10px;">
+        <div style="color:var(--muted2);margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
+          <span>音檔清單</span>
+          <button onclick="document.getElementById('soundFileInput').click()" style="font-size:10px;padding:3px 8px;border:1px solid var(--border);background:var(--surface);color:var(--muted2);border-radius:3px;cursor:pointer;">+ 上傳</button>
+        </div>
+        <div id="soundList" style="max-height:240px;overflow-y:auto;border:1px solid var(--border);border-radius:4px;background:var(--surface);">
+          <!-- 動態生成 -->
+        </div>
+      </div>
+
+      <input type="file" id="soundFileInput" accept="audio/*" multiple style="display:none;" onchange="handleSoundUpload(event)">
+
+      <div style="font-size:10px;color:var(--muted);line-height:1.5;">▶ 試聽 ・ ① 設為 9 分鐘提示 ・ ② 設為 19 分鐘提示 ・ ✕ 刪除<br>單檔上限 2MB。</div>
+    </div>
+  </div>
   <button id="themeToggleBtn" onclick="toggleTheme()" style="font-size:11px;padding:5px 12px;white-space:nowrap;border:1px solid var(--border);background:var(--surface2);color:var(--muted2);border-radius:4px;cursor:pointer;">☀ Lighter</button>
   <div class="status-dot">ready</div>
 </header>
@@ -860,8 +903,9 @@ function parseJSON() {
   if (updateDateEl && updateDateValEl) {
     const ud = data.UpdateDate || '';
     if (ud) {
-      // Convert UTC → UTC+8 properly
-      const dt = new Date(new Date(ud).getTime() + 8 * 3600 * 1000);
+      // Append Z to force UTC interpretation (JSON may omit Z suffix)
+      const utcStr = ud.includes('Z') ? ud : ud.replace(/(\.\d+)?$/, 'Z');
+      const dt = new Date(new Date(utcStr).getTime() + 8 * 3600 * 1000);
       const pad = n => String(n).padStart(2,'0');
       const formatted = `${dt.getUTCFullYear()}-${pad(dt.getUTCMonth()+1)}-${pad(dt.getUTCDate())} ${pad(dt.getUTCHours())}:${pad(dt.getUTCMinutes())}:${pad(dt.getUTCSeconds())} UTC+8`;
       updateDateValEl.textContent = formatted;
@@ -876,7 +920,18 @@ function parseJSON() {
   const ticketId = String(extracted.PurchaseId ?? '—');
   const eventName = String(extracted.EventName ?? '—');
 
-  try { localStorage.setItem('lastJSON', raw); } catch {}
+  try {
+    // Store last 10 JSONs keyed by ticketId
+    let hist = {};
+    try { hist = JSON.parse(localStorage.getItem('jsonHistory') || '{}'); } catch {}
+    const tidM = raw.match(/"SQLTicketId"\s*:\s*(\d+)/);
+    const tid = tidM ? tidM[1] : ('__'+Date.now());
+    hist[tid] = raw;
+    // Keep only latest 10
+    const keys = Object.keys(hist);
+    if (keys.length > 10) delete hist[keys[0]];
+    localStorage.setItem('jsonHistory', JSON.stringify(hist));
+  } catch {}
 }
 
 
@@ -1234,7 +1289,7 @@ function renderTable() {
     };
     tr.innerHTML =
       '<td style="color:var(--muted);font-size:10px;">'+(filtered.length - idx)+'<\/td>'+
-      '<td><div class="td-op">'+(rec.siteId && SITE_ID_MAP[rec.siteId] ? SITE_ID_MAP[rec.siteId] : (rec.siteId||'—'))+'<\/div><div style="font-size:10px;color:var(--muted);margin-top:3px;">'+rec.time+'<\/div><div class=\'elapsed-timer\' data-start=\''+rec.id+'\' data-done=\''+(rec.done?'1':'0')+'\'  data-stopped=\''+(rec.doneAt||'')+'\' style=\'font-size:10px;color:var(--muted2);margin-top:1px;\'><\/div><\/td>'+  '<td><div class="check-wrap"><div class="check-box'+(rec.done?' checked':'')+'" onclick="toggleDone('+rec.id+')"><\/div><\/div><\/td>'+
+      '<td><div class="td-op" style="font-size:13px;">'+(rec.siteId && SITE_ID_MAP[rec.siteId] ? SITE_ID_MAP[rec.siteId] : (rec.siteId||'—'))+'<\/div><div class=\'elapsed-timer\' data-start=\''+rec.id+'\' data-done=\''+(rec.done?'1':'0')+'\'  data-stopped=\''+(rec.doneAt||'')+'\' style=\'font-size:10px;color:var(--muted2);margin-top:1px;\'><\/div><\/td>'+  '<td><div class="check-wrap"><div class="check-box'+(rec.done?' checked':'')+'" onclick="toggleDone('+rec.id+')"><\/div><\/div><\/td>'+
       (()=>{
       const isDup = filtered.filter(r => r.ticketId === rec.ticketId).length > 1;
       return '<td style="cursor:default;"><div class="td-id" style="display:flex;align-items:center;gap:6px;'+(isDup?'color:var(--danger);':'')+'">'+(rec.ticketId||'—')+'<span class="pid-copy-btn" data-pid="'+(rec.ticketId||'')+'" title="複製" style="cursor:pointer;opacity:0.5;font-size:10px;flex-shrink:0;" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=0.5">⧉<\/span><\/div>'+(rec.betId?'<div style="font-size:11px;color:var(--muted2);margin-top:2px;font-family:var(--mono);">'+rec.betId+'<\/div>':'')+(rec.reserveId?'<div style="font-size:11px;color:var(--muted2);margin-top:1px;font-family:var(--mono);">'+rec.reserveId+'<\/div>':'')+'<\/td>';
@@ -1249,8 +1304,7 @@ function renderTable() {
       '<td>'+(rec.firstSelStatus!=null?selBadge(parseInt(rec.firstSelStatus)):(rec.betStatus!=null?betStatusBadge(rec.betStatus):''))+'<\/td>'+
       '<td class="reply-td" data-recid="'+rec.id+'" style="cursor:pointer;"><textarea class="reply-input" placeholder="回覆..." data-recid="'+rec.id+'" style="width:100%;background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--text);font-size:11px;font-family:var(--mono);padding:1px 2px;outline:none;cursor:text;resize:none;overflow:hidden;max-height:54px;height:20px;line-height:18px;box-sizing:content-box;display:block;" onclick="event.stopPropagation()" oninput="this.style.height=\'18px\';this.style.height=Math.min(this.scrollHeight,54)+\'px\'"><\/textarea><div style="display:flex;gap:3px;margin-top:3px;"><button class="reply-save-btn" data-recid="'+rec.id+'" onclick="event.stopPropagation();saveReplyFromBtn(this)" style="font-size:9px;padding:1px 5px;cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--muted2);border-radius:3px;'+(rec.reply?'color:var(--success);border-color:var(--success);':'')+'">'+(rec.reply?'✓':'紀錄')+'<\/button><button class="reply-copy-btn" data-recid="'+rec.id+'" onclick="event.stopPropagation();copyReplyFromBtn(this)" style="font-size:9px;padding:1px 5px;cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--muted2);border-radius:3px;">複製<\/button><button class="reply-clear-btn" data-recid="'+rec.id+'" onclick="event.stopPropagation();clearReplyFromBtn(this)" style="font-size:9px;padding:1px 5px;cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--muted2);border-radius:3px;">清除<\/button><\/div><\/td>'+
       '<td style="max-width:110px;overflow:hidden;"><div class="td-note" title="'+(rec.note||'')+'">'+(rec.note||'')+'<\/div><button class="td-note-edit-btn" onclick="event.stopPropagation();startNoteEdit(this,'+rec.id+')">✎ 編輯<\/button><\/td>'+
-      '<td style="text-align:center;">'+
-      '<\/td>'+
+      '<td style="text-align:center;"><button onclick="event.stopPropagation();reparseRecord('+rec.id+')" title="重新分析" style="font-size:10px;padding:2px 5px;cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--muted2);border-radius:3px;white-space:nowrap;" onmouseover="this.style.borderColor=\'var(--accent)\';this.style.color=\'var(--accent)\'" onmouseout="this.style.borderColor=\'\';this.style.color=\'\'">↺<\/button><\/td>'+
       '<td style="text-align:center;position:relative;width:40px;min-width:40px;"><button class="del-btn" onclick="deleteRecord('+rec.id+')" title="刪除">✕<\/button><\/td>'+
       '';
     body.appendChild(tr);
@@ -1272,9 +1326,9 @@ function renderTable() {
         selTr.dataset.expandId = rec.id;
         selTr.innerHTML =
           '<td><\/td>'+   // E1: 序號
-          '<td><\/td>'+   // E2: OP
+          '<td style="font-size:10px;color:var(--muted);font-family:var(--mono);vertical-align:middle;padding:4px 6px;white-space:nowrap;line-height:1.4;">'+(si===0 ? (rec.time ? rec.time.replace(' ', '<br>') : '') : '')+'<\/td>'+   // E2: 解析時間
           '<td><\/td>'+   // E3: 全部 (勾選)
-          '<td style="font-size:10px;color:var(--muted2);font-family:var(--mono);vertical-align:middle;padding:4px 6px;">'+(si===0 && rec.betName ? escHtml(rec.betName) : '')+'<\/td>'+   // E4: Bet Type
+          '<td style="font-size:11px;color:var(--muted2);font-family:var(--mono);vertical-align:middle;padding:4px 6px;">'+(si===0 && rec.betName ? escHtml(rec.betName) : '')+'<\/td>'+   // E4: Bet Type
           '<td class="e5-cell" style="font-size:12px;color:var(--muted2);font-family:var(--mono);vertical-align:middle;padding:4px 6px 4px 0px;font-weight:500;">'+(s.leagueName||'—')+'<\/td>'+   // E5: LeagueName
           '<td style="width:360px;max-width:360px;overflow:hidden;padding:4px 6px;vertical-align:middle;">'
             +'<div style="font-size:12px;color:rgba(255,255,255,0.75);font-family:var(--mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:354px;" title="'+escHtml(s.eventName||'')+'">'+escHtml(s.eventName||'—')+'<\/div>'
@@ -1939,6 +1993,36 @@ let _deletedRecord = null;
 let _focusedRecId = null;
 let _undoTimer = null;
 
+function searchByEvent(eventName) {
+  const input = document.getElementById('searchInput');
+  if (input) {
+    input.value = eventName;
+    input.dispatchEvent(new Event('input'));
+  }
+}
+
+function reparseRecord(id) {
+  const rec = records.find(r => r.id === id);
+  if (!rec || !rec.ticketId) return;
+  const input = document.getElementById('jsonInput');
+  // Check current input first
+  const current = input.value.trim();
+  if (current) {
+    const m = current.match(/"SQLTicketId"\s*:\s*(\d+)/);
+    if (m && m[1] === rec.ticketId) { parseJSON(); return; }
+  }
+  // Search jsonHistory
+  try {
+    const hist = JSON.parse(localStorage.getItem('jsonHistory') || '{}');
+    if (hist[rec.ticketId]) {
+      input.value = hist[rec.ticketId];
+      parseJSON();
+      return;
+    }
+  } catch {}
+  alert('找不到此紀錄的原始 JSON，請重新貼上');
+}
+
 function deleteRecord(id) {
   const idx = records.findIndex(r => r.id === id);
   if (idx === -1) return;
@@ -2156,6 +2240,348 @@ function formatElapsed(ms) {
 }
 let _elapsedInterval = null;
 let _elapsedUpdate = null;
+let _alertedTimers = new Set();
+let _audioCtx = null;
+// 音效模式: 'beep' (預設嗶聲) | 'custom' (自訂音檔) | 'off' (關閉)
+let _soundMode = 'beep';
+// 個人音檔清單 (localStorage),每筆: { id, name, dataUrl }
+let _soundList = [];
+// 兩個槽位:slot 1 = 9 分鐘提示音,slot 2 = 19 分鐘提示音
+// null 代表使用預設嗶聲
+let _activeSoundId1 = null;
+let _activeSoundId2 = null;
+let _volume = 0.7;  // 0.0 ~ 1.0
+// 從 localStorage 載入設定
+try {
+  const savedMode = localStorage.getItem('soundMode');
+  if (savedMode) _soundMode = savedMode;
+  const savedList = localStorage.getItem('soundList');
+  if (savedList) _soundList = JSON.parse(savedList) || [];
+  _activeSoundId1 = localStorage.getItem('activeSoundId1') || null;
+  _activeSoundId2 = localStorage.getItem('activeSoundId2') || null;
+  const savedVol = localStorage.getItem('soundVolume');
+  if (savedVol !== null) _volume = Math.max(0, Math.min(1, parseFloat(savedVol)));
+  // 舊版相容:把單一音檔遷移到清單,並設為 slot 1
+  const legacyData = localStorage.getItem('customSoundData');
+  const legacyName = localStorage.getItem('customSoundName');
+  if (legacyData && _soundList.length === 0) {
+    const id = 's_' + Date.now();
+    _soundList.push({ id, name: legacyName || 'sound.mp3', dataUrl: legacyData });
+    _activeSoundId1 = id;
+    localStorage.setItem('soundList', JSON.stringify(_soundList));
+    localStorage.setItem('activeSoundId1', id);
+    localStorage.removeItem('customSoundData');
+    localStorage.removeItem('customSoundName');
+  }
+  // 舊版相容:把單槽位 activeSoundId 遷移為 slot 1
+  const legacySingle = localStorage.getItem('activeSoundId');
+  if (legacySingle && !_activeSoundId1) {
+    _activeSoundId1 = legacySingle;
+    localStorage.setItem('activeSoundId1', legacySingle);
+    localStorage.removeItem('activeSoundId');
+  }
+} catch {}
+
+function saveSoundList() {
+  try {
+    localStorage.setItem('soundList', JSON.stringify(_soundList));
+    if (_activeSoundId1) localStorage.setItem('activeSoundId1', _activeSoundId1);
+    else localStorage.removeItem('activeSoundId1');
+    if (_activeSoundId2) localStorage.setItem('activeSoundId2', _activeSoundId2);
+    else localStorage.removeItem('activeSoundId2');
+  } catch (err) {
+    alert('儲存失敗 (可能超過瀏覽器儲存上限)。請刪除一些音檔再試。');
+  }
+}
+
+function getActiveSound(slot) {
+  // slot: 1 (9 分鐘) 或 2 (19 分鐘)
+  const id = slot === 2 ? _activeSoundId2 : _activeSoundId1;
+  if (!id) return null;
+  return _soundList.find(s => s.id === id) || null;
+}
+
+function updateSoundButton() {
+  const btn = document.getElementById('soundToggleBtn');
+  if (!btn) return;
+  if (_soundMode === 'off') {
+    btn.textContent = '🔇 Off';
+    btn.style.color = 'var(--muted)';
+    btn.title = '音效已關閉 (點擊切換)';
+  } else if (_soundMode === 'custom') {
+    const a1 = getActiveSound(1);
+    const a2 = getActiveSound(2);
+    const tag = (a1 || a2) ? '🎵' : '🔔';
+    btn.textContent = tag + ' Custom';
+    btn.style.color = 'var(--muted2)';
+    btn.title = '提示音 ① 9 分鐘: ' + (a1 ? a1.name : '預設嗶聲') +
+                '\n提示音 ② 19 分鐘: ' + (a2 ? a2.name : '預設嗶聲') +
+                '\n(點擊切換模式)';
+  } else {
+    btn.textContent = '🔔 Beep';
+    btn.style.color = 'var(--muted2)';
+    btn.title = '使用預設嗶聲 (點擊切換)';
+  }
+  // 同步更新面板裡的兩個槽位顯示
+  const slot1Disp = document.getElementById('slot1Display');
+  const slot2Disp = document.getElementById('slot2Display');
+  if (slot1Disp) {
+    const a1 = getActiveSound(1);
+    slot1Disp.textContent = a1 ? a1.name : '預設嗶聲';
+    slot1Disp.style.color = a1 ? 'var(--text)' : 'var(--muted2)';
+  }
+  if (slot2Disp) {
+    const a2 = getActiveSound(2);
+    slot2Disp.textContent = a2 ? a2.name : '預設嗶聲';
+    slot2Disp.style.color = a2 ? 'var(--text)' : 'var(--muted2)';
+  }
+}
+
+function truncate(s, n) {
+  s = s || '';
+  return s.length > n ? s.slice(0, n - 1) + '…' : s;
+}
+
+function toggleSound() {
+  // 循環: beep -> custom -> off -> beep
+  // 沒有任何自訂音檔被指派到任一槽位時,跳過 custom
+  const hasCustom = !!(getActiveSound(1) || getActiveSound(2));
+  if (_soundMode === 'beep') {
+    _soundMode = hasCustom ? 'custom' : 'off';
+  } else if (_soundMode === 'custom') {
+    _soundMode = 'off';
+  } else {
+    _soundMode = 'beep';
+  }
+  try { localStorage.setItem('soundMode', _soundMode); } catch {}
+  updateSoundButton();
+  if (_soundMode !== 'off') {
+    _alertedTimers.clear();
+    playAlertSound(1);  // 切換時用 slot 1 預覽
+  }
+}
+
+function toggleSoundPanel(event) {
+  if (event) event.stopPropagation();
+  const panel = document.getElementById('soundPanel');
+  if (!panel) return;
+  if (panel.style.display === 'none') {
+    panel.style.display = 'block';
+    renderSoundList();
+    document.getElementById('volumeSlider').value = Math.round(_volume * 100);
+    document.getElementById('volumeValue').textContent = Math.round(_volume * 100) + '%';
+    // 點面板外關閉
+    setTimeout(() => {
+      document.addEventListener('click', closeSoundPanelOnOutsideClick);
+    }, 0);
+  } else {
+    panel.style.display = 'none';
+    document.removeEventListener('click', closeSoundPanelOnOutsideClick);
+  }
+}
+
+function closeSoundPanelOnOutsideClick(e) {
+  const panel = document.getElementById('soundPanel');
+  const btn = document.getElementById('soundSettingsBtn');
+  if (!panel || !btn) return;
+  if (!panel.contains(e.target) && e.target !== btn) {
+    panel.style.display = 'none';
+    document.removeEventListener('click', closeSoundPanelOnOutsideClick);
+  }
+}
+
+function renderSoundList() {
+  const box = document.getElementById('soundList');
+  if (!box) return;
+  if (_soundList.length === 0) {
+    box.innerHTML = '<div style="padding:14px;text-align:center;color:var(--muted);font-size:11px;">尚無音檔,請點上方「+ 上傳」</div>';
+    return;
+  }
+  box.innerHTML = _soundList.map(s => {
+    const isSlot1 = s.id === _activeSoundId1;
+    const isSlot2 = s.id === _activeSoundId2;
+    const bg = (isSlot1 || isSlot2) ? 'rgba(100,180,255,0.08)' : 'transparent';
+    const slot1Style = isSlot1
+      ? 'background:#5ec6ff;color:#0a1929;border:1px solid #5ec6ff;'
+      : 'background:none;color:var(--muted);border:1px solid var(--border);';
+    const slot2Style = isSlot2
+      ? 'background:#f0a020;color:#1a0e00;border:1px solid #f0a020;'
+      : 'background:none;color:var(--muted);border:1px solid var(--border);';
+    return '<div style="display:flex;align-items:center;gap:5px;padding:6px 8px;border-bottom:1px solid var(--border);background:' + bg + ';">' +
+      '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);" title="' + escapeAttr(s.name) + '">' + escapeHtml(s.name) + '</span>' +
+      '<button onclick="previewSound(\'' + s.id + '\')" title="試聽" style="background:none;border:1px solid var(--border);color:var(--muted2);cursor:pointer;font-size:10px;padding:2px 7px;border-radius:3px;">▶</button>' +
+      '<button onclick="setActiveSound(\'' + s.id + '\', 1)" title="設為 9 分鐘提示音 (再點一次取消)" style="' + slot1Style + 'cursor:pointer;font-size:10px;padding:2px 7px;border-radius:3px;font-weight:600;">①</button>' +
+      '<button onclick="setActiveSound(\'' + s.id + '\', 2)" title="設為 19 分鐘提示音 (再點一次取消)" style="' + slot2Style + 'cursor:pointer;font-size:10px;padding:2px 7px;border-radius:3px;font-weight:600;">②</button>' +
+      '<button onclick="deleteSound(\'' + s.id + '\')" title="刪除" style="background:none;border:1px solid var(--border);color:var(--danger);cursor:pointer;font-size:10px;padding:2px 7px;border-radius:3px;">✕</button>' +
+      '</div>';
+  }).join('');
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function escapeAttr(s) { return escapeHtml(s); }
+
+function setActiveSound(id, slot) {
+  // 如果該 slot 已經是這個音檔,則取消 (改回預設嗶聲)
+  if (slot === 1) {
+    _activeSoundId1 = (_activeSoundId1 === id) ? null : id;
+  } else if (slot === 2) {
+    _activeSoundId2 = (_activeSoundId2 === id) ? null : id;
+  }
+  saveSoundList();
+  // 至少有一個 slot 有自訂音檔時,自動切到 custom 模式
+  if (_activeSoundId1 || _activeSoundId2) {
+    _soundMode = 'custom';
+    try { localStorage.setItem('soundMode', _soundMode); } catch {}
+  }
+  updateSoundButton();
+  renderSoundList();
+  // 試聽該 slot 的音效
+  if (slot === 1 && _activeSoundId1) playAlertSound(1);
+  else if (slot === 2 && _activeSoundId2) playAlertSound(2);
+}
+
+function previewSound(id) {
+  const s = _soundList.find(x => x.id === id);
+  if (!s) return;
+  try {
+    const audio = new Audio(s.dataUrl);
+    audio.volume = _volume;
+    audio.play().catch(err => console.warn('Preview failed:', err));
+  } catch (e) { console.warn(e); }
+}
+
+function deleteSound(id) {
+  const s = _soundList.find(x => x.id === id);
+  if (!s) return;
+  if (!confirm('確定要刪除「' + s.name + '」?')) return;
+  _soundList = _soundList.filter(x => x.id !== id);
+  // 如果該音檔被任一 slot 使用,清掉指派 (回退為預設嗶聲)
+  if (_activeSoundId1 === id) _activeSoundId1 = null;
+  if (_activeSoundId2 === id) _activeSoundId2 = null;
+  // 如果兩個 slot 都沒有自訂音檔且模式是 custom,切回 beep
+  if (!_activeSoundId1 && !_activeSoundId2 && _soundMode === 'custom') {
+    _soundMode = 'beep';
+    try { localStorage.setItem('soundMode', _soundMode); } catch {}
+  }
+  saveSoundList();
+  renderSoundList();
+  updateSoundButton();
+}
+
+function onVolumeChange(val) {
+  _volume = Math.max(0, Math.min(1, parseFloat(val) / 100));
+  document.getElementById('volumeValue').textContent = Math.round(_volume * 100) + '%';
+  try { localStorage.setItem('soundVolume', String(_volume)); } catch {}
+}
+
+function handleSoundUpload(event) {
+  const files = event.target.files;
+  if (!files || files.length === 0) return;
+  let tooLarge = [];
+  let pending = files.length;
+  let firstUploadedId = null;
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    if (file.size > 2 * 1024 * 1024) {
+      tooLarge.push(file.name);
+      pending--;
+      if (pending === 0) finishUpload();
+      continue;
+    }
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const id = 's_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+      _soundList.push({ id, name: file.name, dataUrl: e.target.result });
+      if (!firstUploadedId) firstUploadedId = id;
+      pending--;
+      if (pending === 0) finishUpload();
+    };
+    reader.onerror = function() {
+      pending--;
+      if (pending === 0) finishUpload();
+    };
+    reader.readAsDataURL(file);
+  }
+  function finishUpload() {
+    // 如果原本沒有任何 slot 指派,自動把第一個上傳的指派給 slot 1
+    if (firstUploadedId && !_activeSoundId1 && !_activeSoundId2) {
+      _activeSoundId1 = firstUploadedId;
+    }
+    saveSoundList();
+    renderSoundList();
+    updateSoundButton();
+    if (tooLarge.length > 0) {
+      alert('以下檔案超過 2MB 上限,已略過:\n' + tooLarge.join('\n'));
+    }
+  }
+  event.target.value = '';
+}
+
+function playAlertSound(slot) {
+  // slot: 1 (9 分鐘提示音) 或 2 (19 分鐘提示音);未指定預設為 1
+  slot = slot === 2 ? 2 : 1;
+  if (_soundMode === 'off') return;
+  // 自訂音檔模式
+  if (_soundMode === 'custom') {
+    const active = getActiveSound(slot);
+    if (active) {
+      try {
+        const audio = new Audio(active.dataUrl);
+        audio.volume = _volume;
+        audio.play().catch(err => console.warn('Custom sound play failed:', err));
+      } catch (e) { console.warn(e); }
+      return;
+    }
+    // 該 slot 沒指派自訂音檔 -> fallback 到預設嗶聲 (依 slot 不同變化)
+  }
+  // 預設嗶聲模式 (slot 1 = 較溫和、slot 2 = 較急促)
+  try {
+    if (!_audioCtx) {
+      _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (_audioCtx.state === 'suspended') {
+      _audioCtx.resume();
+    }
+    const peak = 0.4 * _volume;
+    const beep = function(startTime, freq, duration) {
+      const osc = _audioCtx.createOscillator();
+      const gain = _audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0, startTime);
+      gain.gain.linearRampToValueAtTime(peak, startTime + 0.02);
+      gain.gain.linearRampToValueAtTime(0, startTime + duration);
+      osc.connect(gain);
+      gain.connect(_audioCtx.destination);
+      osc.start(startTime);
+      osc.stop(startTime + duration);
+    };
+    const t = _audioCtx.currentTime;
+    if (slot === 2) {
+      // 19 分鐘:急促 5 聲方波風 (較刺耳)
+      beep(t,        1200, 0.18);
+      beep(t + 0.22, 1200, 0.18);
+      beep(t + 0.44, 1200, 0.18);
+      beep(t + 0.66, 1500, 0.18);
+      beep(t + 0.88, 1500, 0.30);
+    } else {
+      // 9 分鐘:原本的溫和三聲
+      beep(t,        880,  0.35);
+      beep(t + 0.45, 880,  0.35);
+      beep(t + 0.90, 1100, 0.35);
+    }
+  } catch (e) {
+    console.warn('Alert sound failed:', e);
+  }
+}
+// 頁面載入時更新按鈕狀態
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', updateSoundButton);
+} else {
+  updateSoundButton();
+}
 function startElapsedTimers() {
   // Always run update immediately for new elements
   if (_elapsedUpdate) _elapsedUpdate();
@@ -2167,8 +2593,33 @@ function startElapsedTimers() {
       const stopped = Number(el.dataset.stopped) || 0;
       const elapsed = done ? (stopped - start) : (Date.now() - start);
       if (elapsed < 0) return;
-      el.style.color = elapsed >= 600000 ? 'var(--danger)' : 'var(--muted2)';
+      // 顏色分級:
+      // < 9 分鐘  → 一般灰
+      // ≥ 9 分鐘  → 警告 (橘)
+      // ≥ 19 分鐘 → 危險 (紅)
+      if (elapsed >= 1140000) {        // 19 分鐘
+        el.style.color = 'var(--danger)';
+      } else if (elapsed >= 540000) {  // 9 分鐘
+        el.style.color = 'var(--warn, #f0a020)';
+      } else {
+        el.style.color = 'var(--muted2)';
+      }
       el.textContent = formatElapsed(elapsed);
+      // 兩階段提示音 (每筆每階段各響一次,使用不同音效)
+      if (!done) {
+        const key = String(start);
+        // 第二階段:19 分鐘 -> 播 slot 2 音效
+        if (elapsed >= 1140000 && !_alertedTimers.has(key + '_19')) {
+          _alertedTimers.add(key + '_19');
+          _alertedTimers.add(key + '_9');  // 同時標記 9 分鐘已提醒,避免延遲載入時重複
+          playAlertSound(2);
+        }
+        // 第一階段:9 分鐘 -> 播 slot 1 音效
+        else if (elapsed >= 540000 && !_alertedTimers.has(key + '_9')) {
+          _alertedTimers.add(key + '_9');
+          playAlertSound(1);
+        }
+      }
     });
   }
   update();
