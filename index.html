@@ -1192,7 +1192,7 @@ td:hover .td-note-edit-btn { display: inline-block; }
     <div class="table-wrap">
       <div class="empty-state" id="emptyState">
         <i class="empty-icon">&#9744;</i>
-        <span>解析投注單後將自動記錄於此</span>
+        <span>跟你說一件事 那就是沒事</span>
       </div>
       <table id="recordTable" style="display:none;">
         <thead>
@@ -1859,16 +1859,19 @@ function renderTable() {
           '<td style="font-size:10px;color:var(--muted);font-family:var(--mono);vertical-align:middle;padding:4px 6px;white-space:nowrap;line-height:1.4;">'+(si===0 ? (rec.time ? rec.time.replace(' ', '<br>') : '') : '')+'<\/td>'+   // E2: 解析時間
           '<td><\/td>'+   // E3: 全部 (勾選)
           '<td style="font-size:11px;color:var(--muted2);font-family:var(--mono);vertical-align:middle;padding:4px 6px;">'+(si===0 && rec.betName ? escHtml(rec.betName) : '')+'<\/td>'+   // E4: Bet Type
-          '<td class="e5-cell" style="font-size:12px;color:var(--muted2);font-family:var(--mono);vertical-align:middle;padding:4px 6px 4px 0px;font-weight:500;">'+(s.leagueName||'—')+'<\/td>'+   // E5: LeagueName
-          '<td style="width:360px;max-width:360px;overflow:hidden;padding:4px 6px;vertical-align:middle;">'
-            +'<div style="font-size:12px;color:rgba(255,255,255,0.75);font-family:var(--mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:354px;" title="'+escHtml(s.eventName||'')+'">'+escHtml(s.eventName||'—')+'<\/div>'
-            +'<div style="font-size:10px;color:var(--muted2);font-family:var(--mono);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:354px;">'
+          '<td class="e5-cell" style="font-size:12px;color:var(--muted2);font-family:var(--mono);vertical-align:middle;padding:4px 6px 4px 0px;font-weight:500;">'
+            +'<div>'+(s.leagueName||'—')+'<\/div>'
+            +(si===0 && rec.creationDate ? '<div style="font-size:10px;color:var(--muted);margin-top:2px;font-weight:400;">'+escHtml(formatEventDate(rec.creationDate))+'<\/div>' : '')
+          +'<\/td>'+   // E5: LeagueName + CreationDate (UTC+8)
+          '<td style="width:360px;max-width:360px;padding:4px 6px;vertical-align:middle;">'
+            +'<div style="font-size:12px;color:rgba(255,255,255,0.75);font-family:var(--mono);word-break:break-word;line-height:1.4;" title="'+escHtml(s.eventName||'')+'">'+escHtml(s.eventName||'—')+'<\/div>'
+            +'<div style="font-size:10px;color:var(--muted2);font-family:var(--mono);margin-top:2px;word-break:break-word;line-height:1.4;">'
               +escHtml(s.marketName||'')+(s.selectionName?' / '+escHtml(s.selectionName):'')
               +(s.score?' &nbsp;<span style="color:var(--warn);">'+escHtml(s.score)+'<\/span>':'')
               +(s.fullTimeResult?' &nbsp;<span style="color:var(--muted2);">FT: '+escHtml(s.fullTimeResult)+'<\/span>':'')
             +'<\/div>'
             +(s.eventId ? '<div class="td-event-id" style="margin-top:3px;">'+'<span>'+escHtml(s.eventId)+'<\/span>'+'<button class="copy-mini-btn copy-event-btn" data-recid="'+rec.id+'" data-eventid="'+escHtml(s.eventId)+'" data-eventname="'+escHtml(s.eventName||'')+'">複製<\/button>'+'<\/div>' : '')
-          +'<\/td>'+   // E6: EventName / MarketName / SelectionName / 比分 / FullTimeResult / EventId
+          +'<\/td>'+   // E6: EventName / MarketName / SelectionName / 比分 / FullTimeResult / EventId (可換行)
           '<td>'+selBadge(parseInt(s.status))+'<\/td>'+   // E7: 狀態
           (si === 0 ? '<td colspan="2" rowspan="'+rec.selections.length+'" class="expand-reply-cell" data-recid="'+rec.id+'" style="padding:4px 6px;vertical-align:top;">'
             +(rec.note ? '<div style="font-size:10px;color:var(--muted2);font-family:var(--mono);margin-bottom:4px;padding-bottom:4px;border-bottom:1px solid var(--border);white-space:pre-wrap;word-break:break-word;line-height:1.4;">'+escHtml(rec.note)+'<\/div>' : '')
@@ -2446,7 +2449,7 @@ function recordNote() {
   const timeStr = (()=>{ const d=now; return d.getFullYear()+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+String(d.getDate()).padStart(2,'0')+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0'); })();
 
   // Get base data from JSON
-  let selData = [], betStatus = null, siteId = null, ticketId = '', betIdVal = '', reserveIdVal = '', updateDateVal = '', betNameVal = '';
+  let selData = [], betStatus = null, siteId = null, ticketId = '', betIdVal = '', reserveIdVal = '', updateDateVal = '', betNameVal = '', creationDateVal = '';
   try {
     const raw = document.getElementById('jsonInput').value;
     if (raw) {
@@ -2461,6 +2464,7 @@ function recordNote() {
       const rm = raw.match(/"ReserveId"\s*:\s*(\d+)/);
       reserveIdVal = rm ? rm[1] : '';
       updateDateVal = data.UpdateDate || '';
+      creationDateVal = data.CreationDate || '';
       selData = (data.Selections ?? []).map((s, i) => ({
         eventName: s.EventName, leagueName: s.LeagueName ?? '',
         marketName: s.MarketName, selectionName: s.SelectionName,
@@ -2492,7 +2496,7 @@ function recordNote() {
       startEventDate: selData[0]?.startEventDate || '',
       time: timeStr, done: false, isNew: true, selections: selData,
       note: box2, reply: '', activePhrase: null, doneAt: null,
-      betStatus, firstSelStatus: selData[0]?.status ?? null, siteId, updateDate: updateDateVal, betName: betNameVal
+      betStatus, firstSelStatus: selData[0]?.status ?? null, siteId, updateDate: updateDateVal, betName: betNameVal, creationDate: creationDateVal
     };
     records.unshift(newRec);
   } else {
@@ -2507,7 +2511,7 @@ function recordNote() {
         note: box2, reply: '', activePhrase: null, doneAt: null,
         betStatus,
         firstSelStatus: item.dataset.status !== undefined ? parseInt(item.dataset.status) : null,
-        siteId, updateDate: updateDateVal, betName: betNameVal
+        siteId, updateDate: updateDateVal, betName: betNameVal, creationDate: creationDateVal
       };
       records.unshift(newRec);
     });
@@ -2601,7 +2605,13 @@ function undoDelete() {
 
 function formatEventDate(utcStr) {
   if (!utcStr) return '';
-  const d = new Date(utcStr);
+  // 確保字串被視為 UTC:如果沒有 Z 或時區後綴,補上 Z
+  let s = String(utcStr).trim();
+  if (!/Z$/i.test(s) && !/[+-]\d{2}:?\d{2}$/.test(s)) {
+    s = s + 'Z';
+  }
+  const d = new Date(s);
+  if (isNaN(d.getTime())) return utcStr;  // 不認識的格式,回傳原字串
   // Use UTC methods + 8 to avoid local timezone double-counting
   const utcH = d.getUTCHours() + 8;
   const dayOffset = Math.floor(utcH / 24);
