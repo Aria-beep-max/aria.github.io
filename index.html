@@ -35,10 +35,10 @@
 /* ── GURA THEME 🦈 ── */
 [data-theme="gura"] {
   --bg: #0a1830;
-  --surface: #122548;
-  --surface2: #1a3260;
-  --surface3: #234078;
-  --border: rgba(166,216,255,0.18);
+  --surface: #122548b9;
+  --surface2: #1a3260b9;
+  --surface3: #233f78b2;
+  --border: rgba(255, 234, 166, 0.18);
   --border2: rgba(166,216,255,0.42);
   --text: #f0f8ff;
   --muted: #7a95c0;
@@ -196,14 +196,19 @@
   letter-spacing: 0.1em;
   border-bottom: 1px solid var(--border2);
 }
-[data-theme="gura"] .table-wrap { background: rgba(18, 37, 72, 0.6); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+[data-theme="gura"] .table-wrap {
+  background: url('https://raw.githubusercontent.com/Aria-beep-max/aria.github.io/f6934af66e5fb38b4471a5acca259816add8c4a1/manydinos.jpg') center/cover no-repeat;
+  background: rgba(5, 16, 37, 0.459);
+  backdrop-filter: blur(0px);
+  -webkit-backdrop-filter: blur(4px);
+}
 [data-theme="gura"] .table-wrap::-webkit-scrollbar-corner { background: transparent; }
 [data-theme="gura"] table tbody td {
   border-bottom: 1px solid rgba(166,216,255,0.08);
 }
 /* Row alternation for gura - 也半透明 */
-[data-theme="gura"] tbody tr.row-even td { background: rgba(14, 32, 66, 0.6) !important; }
-[data-theme="gura"] tbody tr.row-odd td  { background: rgba(26, 50, 96, 0.6) !important; }
+[data-theme="gura"] tbody tr.row-even td { background: rgba(14, 32, 66, 0.8) !important; }
+[data-theme="gura"] tbody tr.row-odd td  { background: rgba(26, 50, 96, 0.8) !important; }
 [data-theme="gura"] tbody tr.row-even.done td { background: rgba(14, 32, 66, 0.6) !important; opacity: 0.5; }
 [data-theme="gura"] tbody tr.row-odd.done td  { background: rgba(26, 50, 96, 0.6) !important; opacity: 0.5; }
 [data-theme="gura"] table tbody tr:hover td {
@@ -1155,7 +1160,14 @@ td:hover .td-note-edit-btn { display: inline-block; }
             <div style="margin-top:8px;">
               <textarea class="custom-input" id="customScriptInput" placeholder="自行輸入話術..."></textarea>
             </div>
-            <div id="opOutput" class="script-output" style="margin-top:8px;min-height:20px;padding:6px 10px;display:none;" onclick="copyBoth()"></div>
+            <div id="opOutputWrap" style="margin-top:8px;display:none;align-items:center;gap:6px;">
+              <div style="position:relative;flex:1 1 auto;min-width:0;">
+                <div id="opOutput" class="script-output" style="min-height:20px;padding:6px 28px 6px 10px;" contenteditable="true" spellcheck="false" title="可直接編輯"></div>
+                <span onclick="document.getElementById('opOutput').textContent='';document.getElementById('opOutput').focus();" title="清除" style="position:absolute;top:50%;right:8px;transform:translateY(-50%);cursor:pointer;color:var(--muted);font-size:14px;line-height:1;padding:2px 4px;user-select:none;" onmouseenter="this.style.color='var(--danger)'" onmouseleave="this.style.color='var(--muted)'">✕</span>
+              </div>
+              <button type="button" id="opPrefixTG" onclick="toggleOpPrefix('TG')" style="font-size:10px;padding:0 12px;align-self:stretch;border:1px solid var(--border);background:var(--surface);color:var(--muted2);border-radius:5px;cursor:pointer;font-family:inherit;">TG</button>
+              <button type="button" id="opPrefixTM" onclick="toggleOpPrefix('TM')" style="font-size:10px;padding:0 12px;align-self:stretch;border:1px solid var(--border);background:var(--surface);color:var(--muted2);border-radius:5px;cursor:pointer;font-family:inherit;">TM</button>
+            </div>
             <div id="updateDateDisplay" class="script-output" style="display:none;margin-top:8px;font-size:12px;color:var(--text);font-family:var(--mono);padding:6px 10px;min-height:0;">UpdateDate: <span id="updateDateVal"></span></div>
           </div>
         </div>
@@ -1200,6 +1212,7 @@ td:hover .td-note-edit-btn { display: inline-block; }
           <tr>
             <th style="width:30px;">#</th>
             <th style="width:90px;">OP</th>
+            <th style="width:24px;min-width:24px;padding:0 2px;"></th>
             <th style="width:46px;">
               <div style="display:flex;align-items:center;gap:2px;cursor:pointer;user-select:none;" onclick="cycleFilter()">
                 <span id="filterArrow" style="font-size:9px;color:var(--muted2);">全部</span>
@@ -1349,7 +1362,7 @@ window.addEventListener('DOMContentLoaded', () => {
       const opName = (siteId && SITE_ID_MAP[siteId]) ? SITE_ID_MAP[siteId] : '';
       if (opName) {
         const opOut = document.getElementById('opOutput');
-        if (opOut) { opOut.textContent = opName; opOut.style.display = 'block'; }
+        if (opOut) { opOut.textContent = opName; document.getElementById('opOutputWrap').style.display = 'flex'; }
       }
     }
   } catch {}
@@ -1380,6 +1393,7 @@ function parseJSON() {
   document.getElementById('scriptOutput').textContent = '';
   document.getElementById('customScriptInput').value = '';
   document.getElementById('opOutput').textContent = '';
+  document.getElementById('opOutputWrap').style.display = 'none';
   ['open','lost','custom','dis','odds'].forEach(k => { const t=document.getElementById('tab-'+k); if(t) t.classList.remove('active'); });
 
   // Auto-check script based on single bet status
@@ -1412,14 +1426,14 @@ function parseJSON() {
     // Show OP name for single
     if (_opName) {
       document.getElementById('opOutput').textContent = _opName;
-      document.getElementById('opOutput').style.display = 'block';
+      document.getElementById('opOutputWrap').style.display = 'flex';
     }
   } else {
     // combo / system — no auto-fill, just reset state
     scriptState.open = false; scriptState.lost = false; scriptState.custom = false; scriptState.dis = false; scriptState.odds = false;
     if (_opName) {
       document.getElementById('opOutput').textContent = _opName;
-      document.getElementById('opOutput').style.display = 'block';
+      document.getElementById('opOutputWrap').style.display = 'flex';
     }
   }
 
@@ -1532,7 +1546,7 @@ function renderSelections(data) {
   const list = document.getElementById('selList');
   const sels = data.Selections ?? [];
   if (!sels.length) { list.innerHTML = ''; list.style.display='none'; return; }
-  // MappedSelections 定義 sel-item 顯示順序,對應 Selections 的真實 index
+  // MappedSelections 定義顯示順序,對應 Selections 的真實 index
   // 例如 MappedSelections:[1,0] 代表先顯示 Selections[1],再顯示 Selections[0]
   const mapped = data.Bets?.[0]?.MappedSelections;
   const orderedIndices = (mapped && mapped.length === sels.length) ? mapped : sels.map((_,i) => i);
@@ -1826,7 +1840,9 @@ function renderTable() {
     };
     tr.innerHTML =
       '<td style="color:var(--muted);font-size:10px;">'+(filtered.length - idx)+'<\/td>'+
-      '<td><div class="td-op" style="font-size:13px;">'+(rec.siteId && SITE_ID_MAP[rec.siteId] ? SITE_ID_MAP[rec.siteId] : (rec.siteId||'—'))+'<\/div><div class=\'elapsed-timer\' data-start=\''+rec.id+'\' data-done=\''+(rec.done?'1':'0')+'\'  data-stopped=\''+(rec.doneAt||'')+'\' style=\'font-size:10px;color:var(--muted2);margin-top:1px;\'><\/div><\/td>'+  '<td><div class="check-wrap"><div class="check-box'+(rec.done?' checked':'')+'" onclick="toggleDone('+rec.id+')"><\/div><\/div><\/td>'+
+      '<td><div class="td-op" style="font-size:13px;">'+(rec.siteId && SITE_ID_MAP[rec.siteId] ? SITE_ID_MAP[rec.siteId] : (rec.siteId||'—'))+'<\/div><div class=\'elapsed-timer\' data-start=\''+rec.id+'\' data-done=\''+(rec.done?'1':'0')+'\'  data-stopped=\''+(rec.doneAt||'')+'\' style=\'font-size:10px;color:var(--muted2);margin-top:1px;\'><\/div><\/td>'+
+      '<td style="text-align:center;vertical-align:middle;width:24px;min-width:24px;padding:0 2px;"><span title="'+(rec.opPrefix||'未設定')+'" style="font-size:10px;font-weight:400;padding:1px 3px;border-radius:2px;font-family:var(--mono);display:inline-block;white-space:nowrap;'+(rec.opPrefix==='TG'?'background:#4CAF50;color:#fff;':rec.opPrefix==='TM'?'background:#2196F3;color:#fff;':'background:var(--surface3);color:var(--muted2);')+'letter-spacing:0.02em;">'+(rec.opPrefix||'—')+'<\/span><\/td>'+
+      '<td><div class="check-wrap"><div class="check-box'+(rec.done?' checked':'')+'" onclick="toggleDone('+rec.id+')"><\/div><\/div><\/td>'+
       (()=>{
       const isDup = filtered.filter(r => r.ticketId === rec.ticketId).length > 1;
       return '<td style="cursor:default;"><div class="td-id" style="display:flex;align-items:center;gap:6px;'+(isDup?'color:var(--danger);':'')+'">'+(rec.ticketId||'—')+'<span class="pid-copy-btn" data-pid="'+(rec.ticketId||'')+'" title="複製" style="cursor:pointer;opacity:0.5;font-size:10px;flex-shrink:0;" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=0.5">⧉<\/span><\/div>'+(rec.betId?'<div style="font-size:11px;color:var(--muted2);margin-top:2px;font-family:var(--mono);">'+rec.betId+'<\/div>':'')+(rec.reserveId?'<div style="font-size:11px;color:var(--muted2);margin-top:1px;font-family:var(--mono);">'+rec.reserveId+'<\/div>':'')+'<\/td>';
@@ -1857,6 +1873,31 @@ function renderTable() {
 
     // Expand rows - one <tr> per selection, 11 tds all empty
     if (hasSels) {
+      // 取得使用者編輯後的 OP 值：如果 = "AISports" 或為空 則不顯示這個 header 行
+      const opCustom = (rec.opCustom || '').trim();
+      const showHeader = opCustom && opCustom !== 'AISports';
+
+      if (showHeader) {
+        // 在第一個 selection 之前插入一個獨立的 header 行
+        // 此行 E2+E2.5+E3+E4 合併為「OP 紀錄」區，其餘儲存格保留為空（高度=0,不影響整體布局）
+        const headerTr = document.createElement('tr');
+        headerTr.className = 'sel-detail-row sel-header-row' + (idx % 2 === 0 ? ' row-even' : ' row-odd') + (rec._expanded ? ' open' : '');
+        headerTr.dataset.expandId = rec.id;
+        headerTr.innerHTML =
+          '<td style="padding:0;border:none;"><\/td>'+   // E1
+          '<td colspan="4" style="padding:4px 6px;font-size:10px;color:var(--text);font-family:var(--mono);border-bottom:1px dashed var(--border);">'
+            +escHtml(opCustom)
+          +'<\/td>'+   // E2+E2.5+E3+E4 合併
+          '<td style="padding:0;border:none;"><\/td>'+   // E5
+          '<td style="padding:0;border:none;"><\/td>'+   // E6
+          '<td style="padding:0;border:none;"><\/td>'+   // E7
+          '<td style="padding:0;border:none;"><\/td>'+   // E8
+          '<td style="padding:0;border:none;"><\/td>'+   // E9
+          '<td style="padding:0;border:none;"><\/td>'+   // E10
+          '<td style="padding:0;border:none;"><\/td>';   // E11
+        body.appendChild(headerTr);
+      }
+
       rec.selections.forEach((s, si) => {
         const selTr = document.createElement('tr');
         selTr.className = 'sel-detail-row' + (idx % 2 === 0 ? ' row-even' : ' row-odd') + (rec._expanded ? ' open' : '');
@@ -1864,6 +1905,7 @@ function renderTable() {
         selTr.innerHTML =
           '<td><\/td>'+   // E1: 序號
           '<td style="font-size:10px;color:var(--muted);font-family:var(--mono);vertical-align:middle;padding:4px 6px;white-space:nowrap;line-height:1.4;">'+(si===0 ? (rec.time ? rec.time.replace(' ', '<br>') : '') : '')+'<\/td>'+   // E2: 解析時間
+          '<td><\/td>'+   // E2.5: TG/TM 對應位
           '<td><\/td>'+   // E3: 全部 (勾選)
           '<td style="font-size:11px;color:var(--muted2);font-family:var(--mono);vertical-align:middle;padding:4px 6px;">'+(si===0 && rec.betName ? escHtml(rec.betName) : '')+'<\/td>'+   // E4: Bet Type
           '<td class="e5-cell" style="font-size:12px;color:var(--muted2);font-family:var(--mono);vertical-align:middle;padding:4px 6px 4px 0px;font-weight:500;">'
@@ -2163,7 +2205,7 @@ function toggleScriptChk(type) {
     document.getElementById('scriptOutput').textContent = '';
     document.getElementById('customScriptInput').value = '';
     document.getElementById('opOutput').textContent = '';
-    document.getElementById('opOutput').style.display = 'none';
+    document.getElementById('opOutputWrap').style.display = 'none';
     const _udEl2 = document.getElementById('updateDateDisplay');
     if (_udEl2) _udEl2.style.display = 'none';
   }
@@ -2236,12 +2278,31 @@ function checkSelectionRequired() {
 function copyBoth() {
   const box1 = document.getElementById('scriptOutput').textContent.trim();
   let box2 = document.getElementById('customScriptInput').value.trim();
-  const box3 = document.getElementById('opOutput').textContent.trim();
+  let box3 = document.getElementById('opOutput').textContent.trim();
+  if (box3 && opPrefix) box3 = opPrefix + ' - ' + box3;
   const parts = [box1, box2, box3].filter(Boolean);
   if (!parts.length) { alert('尚無內容可複製'); return; }
   const text = parts.join('\n');
   safeCopy(text, () => {
     flashBtn('copyScriptBtn');
+  });
+}
+
+let opPrefix = ''; // '' | 'TG' | 'TM'
+function toggleOpPrefix(p) {
+  opPrefix = (opPrefix === p) ? '' : p;
+  ['TG','TM'].forEach(k => {
+    const el = document.getElementById('opPrefix' + k);
+    if (!el) return;
+    if (k === opPrefix) {
+      el.style.background = 'var(--accent)';
+      el.style.color = 'var(--bg)';
+      el.style.borderColor = 'var(--accent)';
+    } else {
+      el.style.background = 'var(--surface)';
+      el.style.color = 'var(--muted2)';
+      el.style.borderColor = 'var(--border)';
+    }
   });
 }
 
@@ -2452,6 +2513,9 @@ function flashBtn(id) {
 function recordNote() {
   if (!checkSelectionRequired()) return;
   const box2 = document.getElementById('customScriptInput').value.trim();
+  // 讀取左欄 OP 編輯欄位的當前值（使用者可能編輯過）
+  const opOutEl = document.getElementById('opOutput');
+  const opCustomVal = opOutEl ? (opOutEl.textContent || '').trim() : '';
   const now = new Date();
   const timeStr = (()=>{ const d=now; return d.getFullYear()+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+String(d.getDate()).padStart(2,'0')+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0'); })();
 
@@ -2503,7 +2567,9 @@ function recordNote() {
       startEventDate: selData[0]?.startEventDate || '',
       time: timeStr, done: false, isNew: true, selections: selData,
       note: box2, reply: '', activePhrase: null, doneAt: null,
-      betStatus, firstSelStatus: selData[0]?.status ?? null, siteId, updateDate: updateDateVal, betName: betNameVal, creationDate: creationDateVal
+      betStatus, firstSelStatus: selData[0]?.status ?? null, siteId, updateDate: updateDateVal, betName: betNameVal, creationDate: creationDateVal,
+      opPrefix: opPrefix,
+      opCustom: opCustomVal
     };
     records.unshift(newRec);
   } else {
@@ -2523,7 +2589,9 @@ function recordNote() {
         note: box2, reply: '', activePhrase: null, doneAt: null,
         betStatus,
         firstSelStatus: item.dataset.status !== undefined ? parseInt(item.dataset.status) : null,
-        siteId, updateDate: updateDateVal, betName: betNameVal, creationDate: creationDateVal
+        siteId, updateDate: updateDateVal, betName: betNameVal, creationDate: creationDateVal,
+        opPrefix: opPrefix,
+        opCustom: opCustomVal
       };
       records.unshift(newRec);
     });
@@ -2748,6 +2816,8 @@ function clearAll() {
   if (selList) selList.innerHTML = '';
   const opOut = document.getElementById('opOutput');
   if (opOut) { opOut.textContent = ''; }
+  const opOutW = document.getElementById('opOutputWrap');
+  if (opOutW) opOutW.style.display = 'none';
   const udEl = document.getElementById('updateDateDisplay');
   if (udEl) { udEl.style.display = 'none'; document.getElementById('updateDateVal').textContent = ''; }
   extraState.dis = false; extraState.odds = false;
