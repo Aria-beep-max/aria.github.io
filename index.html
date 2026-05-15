@@ -17,8 +17,8 @@
   --border: rgba(255,255,255,0.08);
   --border2: rgba(255,255,255,0.14);
   --text: #e8e6e0;
-  --muted: #5a5a5a;
-  --muted2: #888;
+  --muted: #a3a3a3;
+  --muted2: #acacac;
   --accent: #c8f060;
   --accent-dim: rgba(200,240,96,0.12);
   --accent-dim2: rgba(200,240,96,0.06);
@@ -36,7 +36,7 @@
 [data-theme="gura"] {
   --bg: #0a1830;
   --surface: #122548b9;
-  --surface2: #1a3260b9;
+  --surface2: #0e2041b9;
   --surface3: #233f78b2;
   --border: rgba(255, 234, 166, 0.18);
   --border2: rgba(166,216,255,0.42);
@@ -189,7 +189,7 @@
 }
 
 /* Records table - 半透明讓泡泡能透出來 */
-[data-theme="gura"] table thead { background: rgba(18, 37, 72, 0.6); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+[data-theme="gura"] table thead { background: rgba(4, 12, 27, 0.6); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
 [data-theme="gura"] table thead th {
   background: rgba(18, 37, 72, 0.6);
   color: var(--gura-light);
@@ -198,7 +198,7 @@
 }
 [data-theme="gura"] .table-wrap {
   background: url('https://raw.githubusercontent.com/Aria-beep-max/aria.github.io/f6934af66e5fb38b4471a5acca259816add8c4a1/manydinos.jpg') center/cover no-repeat;
-  background: rgba(5, 16, 37, 0.459);
+  background: rgba(6, 9, 39, 0.521);
   backdrop-filter: blur(0px);
   -webkit-backdrop-filter: blur(4px);
 }
@@ -316,7 +316,7 @@
   --border: rgba(0,229,255,0.18);
   --border2: rgba(0,229,255,0.40);
   --text: #e8f0ff;
-  --muted: #6a80a8;
+  --muted: #8c9ab4;
   --muted2: #9ab0d0;
   --accent: #00e5ff;
   --accent-dim: rgba(0,229,255,0.12);
@@ -1853,7 +1853,7 @@ function renderTable() {
       +'<span class="phrase-cat-label" data-recid="'+rec.id+'" data-cat="24hrs">24hrs</span><span></span><button class="phrase-btn phrase-rec-btn" data-recid="'+rec.id+'" data-pkey="24hrs_en">英<\/button><button class="phrase-btn phrase-rec-btn" data-recid="'+rec.id+'" data-pkey="24hrs_zh">中<\/button><button class="phrase-btn phrase-rec-btn" data-recid="'+rec.id+'" data-pkey="24hrs_ko">韓<\/button><span></span>'
       +'<span class="phrase-cat-label" data-recid="'+rec.id+'" data-cat="review">review</span><span></span><button class="phrase-btn phrase-rec-btn" data-recid="'+rec.id+'" data-pkey="review_en">英<\/button><button class="phrase-btn phrase-rec-btn" data-recid="'+rec.id+'" data-pkey="review_zh">中<\/button><button class="phrase-btn phrase-rec-btn" data-recid="'+rec.id+'" data-pkey="review_ko">韓<\/button>'
       +'<\/div><\/td>'+
-      '<td style="width:360px;max-width:360px;overflow:hidden;"><div style="display:flex;flex-direction:column;gap:2px;justify-content:center;">'+'<div class="td-event" title="'+rec.eventName+'" style="max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+(rec._dupIcon?'<span style="margin-right:5px;font-size:13px;">'+rec._dupIcon+'<\/span>':'')+'<span class="td-event-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline;">'+rec.eventName+'<\/span><\/div>'+((()=>{ const s0=rec.selections&&rec.selections[0]; return (s0&&s0.selectionName)?'<div style="font-size:10px;color:var(--muted);font-family:var(--mono);">'+escHtml(s0.marketName||'')+(s0.selectionName?' / '+escHtml(s0.selectionName):'')+'<\/div>':''; })())+(rec.startEventDate?'<div class="td-event-id" style="color:var(--muted2);"><span>'+formatEventDate(rec.startEventDate)+'<\/span><\/div>':'')+'<\/div><\/td>'+
+      '<td style="width:360px;max-width:360px;overflow:hidden;"><div style="display:flex;flex-direction:column;gap:2px;justify-content:center;">'+'<div class="td-event" title="'+rec.eventName+'" style="max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+(rec._dupIcon?'<span style="margin-right:5px;font-size:13px;">'+rec._dupIcon+'<\/span>':'')+'<span class="td-event-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline;">'+rec.eventName+'<\/span><\/div>'+((()=>{ const s0=rec.selections&&rec.selections[0]; return (s0&&s0.selectionName)?'<div style="font-size:11px;color:var(--muted);font-family:var(--mono);">'+escHtml(s0.marketName||'')+(s0.selectionName?' / '+escHtml(s0.selectionName):'')+'<\/div>':''; })())+(rec.startEventDate?'<div class="td-event-id" style="color:var(--muted2);"><span>'+formatEventDate(rec.startEventDate)+'<\/span><\/div>':'')+'<\/div><\/td>'+
       '<td>'+(rec.firstSelStatus!=null?selBadge(parseInt(rec.firstSelStatus)):(rec.betStatus!=null?betStatusBadge(rec.betStatus):''))+'<\/td>'+
       '<td class="reply-td" data-recid="'+rec.id+'" style="cursor:pointer;"><textarea class="reply-input" placeholder="回覆..." data-recid="'+rec.id+'" style="width:100%;background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--text);font-size:11px;font-family:var(--mono);padding:1px 2px;outline:none;cursor:text;resize:none;overflow:hidden;max-height:54px;height:20px;line-height:18px;box-sizing:content-box;display:block;" onclick="event.stopPropagation()" oninput="this.style.height=\'18px\';this.style.height=Math.min(this.scrollHeight,54)+\'px\'"><\/textarea><div style="display:flex;gap:3px;margin-top:3px;"><button class="reply-save-btn" data-recid="'+rec.id+'" onclick="event.stopPropagation();saveReplyFromBtn(this)" style="font-size:9px;padding:1px 5px;cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--muted2);border-radius:3px;'+(rec.reply?'color:var(--success);border-color:var(--success);':'')+'">'+(rec.reply?'✓':'紀錄')+'<\/button><button class="reply-copy-btn" data-recid="'+rec.id+'" onclick="event.stopPropagation();copyReplyFromBtn(this)" style="font-size:9px;padding:1px 5px;cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--muted2);border-radius:3px;">複製<\/button><button class="reply-clear-btn" data-recid="'+rec.id+'" onclick="event.stopPropagation();clearReplyFromBtn(this)" style="font-size:9px;padding:1px 5px;cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--muted2);border-radius:3px;">清除<\/button><\/div><\/td>'+
       '<td style="max-width:110px;overflow:hidden;"><div class="td-note" title="'+(rec.note||'')+'">'+(rec.note||'')+'<\/div><button class="td-note-edit-btn" onclick="event.stopPropagation();startNoteEdit(this,'+rec.id+')">✎ 編輯<\/button><\/td>'+
@@ -1910,11 +1910,11 @@ function renderTable() {
           '<td style="font-size:11px;color:var(--muted2);font-family:var(--mono);vertical-align:middle;padding:4px 6px;">'+(si===0 && rec.betName ? escHtml(rec.betName) : '')+'<\/td>'+   // E4: Bet Type
           '<td class="e5-cell" style="font-size:12px;color:var(--muted2);font-family:var(--mono);vertical-align:middle;padding:4px 6px 4px 0px;font-weight:500;">'
             +'<div>'+(s.leagueName||'—')+'<\/div>'
-            +(si===0 && rec.creationDate ? '<div style="font-size:10px;color:var(--muted);margin-top:2px;font-weight:400;">'+escHtml(formatEventDate(rec.creationDate))+'<\/div>' : '')
+            +(si===0 && rec.creationDate ? '<div style="font-size:11px;color:var(--muted);margin-top:2px;font-weight:400;">'+escHtml(formatEventDate(rec.creationDate))+'<\/div>' : '')
           +'<\/td>'+   // E5: LeagueName + CreationDate (UTC+8)
           '<td style="width:360px;max-width:360px;padding:4px 6px;vertical-align:middle;">'
             +'<div style="font-size:12px;color:rgba(255,255,255,0.75);font-family:var(--mono);word-break:break-word;line-height:1.4;" title="'+escHtml(s.eventName||'')+'">'+escHtml(s.eventName||'—')+'<\/div>'
-            +'<div style="font-size:10px;color:var(--muted2);font-family:var(--mono);margin-top:2px;word-break:break-word;line-height:1.4;">'
+            +'<div style="font-size:12px;color:var(--muted2);font-family:var(--mono);margin-top:2px;word-break:break-word;line-height:1.4;">'
               +escHtml(s.marketName||'')+(s.selectionName?' / '+escHtml(s.selectionName):'')
               +(s.score?' &nbsp;<span style="color:var(--warn);">'+escHtml(s.score)+'<\/span>':'')
               +(s.fullTimeResult?' &nbsp;<span style="color:var(--muted2);">FT: '+escHtml(s.fullTimeResult)+'<\/span>':'')
