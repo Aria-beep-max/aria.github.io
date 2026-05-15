@@ -1624,21 +1624,29 @@ function cycleFilter() {
 function applyFilter() {
   const tbody = document.getElementById('recordBody');
   if (!tbody) return;
-  const rows = tbody.querySelectorAll('tr');
+  const rows = Array.from(tbody.querySelectorAll('tr'));
+  let lastMainVisible = true;  // 追蹤上一個主列是否可見
+
   rows.forEach(tr => {
-    if (tr.classList.contains('sel-detail-row')) return;
+    if (tr.classList.contains('sel-detail-row')) {
+      // 展開列跟著主列顯示/隱藏
+      tr.style.display = lastMainVisible ? '' : 'none';
+      return;
+    }
     const cb = tr.querySelector('.check-box');
     if (!cb) return;
     const m = (cb.getAttribute('onclick')||'').match(/toggleDone\((\d+)\)/);
     const rec = m ? records.find(r => r.id === Number(m[1])) : null;
-    if (!rec) return;
+    if (!rec) { lastMainVisible = true; return; }
     let visible = true;
     if (_doneFilter === 'done') visible = rec.done;
     else if (_doneFilter === 'undone') visible = !rec.done;
     tr.style.display = visible ? '' : 'none';
+    lastMainVisible = visible;
   });
+
   // Update count
-  const visible = Array.from(rows).filter(tr => !tr.classList.contains('sel-detail-row') && tr.style.display !== 'none').length;
+  const visible = rows.filter(tr => !tr.classList.contains('sel-detail-row') && tr.style.display !== 'none').length;
   const countEl = document.getElementById('recordCount');
   if (countEl) countEl.textContent = visible + ' 筆' + (_doneFilter !== 'all' ? ' (篩選中)' : '');
 }
@@ -1933,8 +1941,9 @@ function renderTable() {
     }
 
   });
+  // 重新套用目前的篩選狀態，避免新增資料後跳回全部
+  applyFilter();
 }
-
 
 function toggleSelCheck(el) { el.classList.toggle('checked'); }
 
@@ -3155,61 +3164,26 @@ function previewSlot(slot) {
   playBeep(slot);
 }
 
+// ★ GitHub repo 音檔路徑 (放在 repo 的 sounds/ 資料夾)
+const ALERT_SOUND = {
+  1: 'sounds/alert1.mp3',   // Slot 1: 9 分鐘提示音
+  2: 'sounds/alert2.mp3'    // Slot 2: 19 分鐘提示音
+};
+
 function playBeep(slot) {
-  // 直接播放預設嗶聲 (兩階段不同),不檢查 _soundMode
   slot = slot === 2 ? 2 : 1;
+  const src = ALERT_SOUND[slot];
   try {
-    if (!_audioCtx) {
-      _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    }
-    // AudioContext 可能因瀏覽器自動播放政策進入 suspended,要等 resume 完成才播
-    const doBeep = () => {
-      const peak = 0.4 * _volume;
-      const beep = function(startTime, freq, duration) {
-        const osc = _audioCtx.createOscillator();
-        const gain = _audioCtx.createGain();
-        osc.type = 'sine';
-        osc.frequency.value = freq;
-        gain.gain.setValueAtTime(0, startTime);
-        gain.gain.linearRampToValueAtTime(peak, startTime + 0.02);
-        gain.gain.linearRampToValueAtTime(0, startTime + duration);
-        osc.connect(gain);
-        gain.connect(_audioCtx.destination);
-        osc.start(startTime);
-        osc.stop(startTime + duration);
-      };
-      const t = _audioCtx.currentTime;
-      if (slot === 2) {
-        beep(t,        1200, 0.18);
-        beep(t + 0.22, 1200, 0.18);
-        beep(t + 0.44, 1200, 0.18);
-        beep(t + 0.66, 1500, 0.18);
-        beep(t + 0.88, 1500, 0.30);
-      } else {
-        beep(t,        880,  0.35);
-        beep(t + 0.45, 880,  0.35);
-        beep(t + 0.90, 1100, 0.35);
-      }
-      console.log('[Alert] ✓ slot ' + slot + ' 嗶聲已播放 (state: ' + _audioCtx.state + ')');
-    };
-    if (_audioCtx.state === 'suspended') {
-      console.log('[Alert] AudioContext 處於 suspended,嘗試 resume...');
-      _audioCtx.resume().then(() => {
-        if (_audioCtx.state === 'running') {
-          doBeep();
-        } else {
-          console.warn('[Alert] ✗ AudioContext 無法 resume (state: ' + _audioCtx.state + ') - 可能瀏覽器擋住了。請點擊頁面任一處再試。');
-          maybeNotify(slot);
-        }
-      }).catch(err => {
-        console.warn('[Alert] ✗ AudioContext resume 失敗:', err);
-        maybeNotify(slot);
-      });
-    } else {
-      doBeep();
-    }
+    const audio = new Audio(src);
+    audio.volume = _volume;
+    audio.play().then(() => {
+      console.log('[Alert] ✓ slot ' + slot + ' 播放: ' + src);
+    }).catch(err => {
+      console.warn('[Alert] ✗ slot ' + slot + ' 播放失敗: ' + err.name, src);
+      maybeNotify(slot);
+    });
   } catch (e) {
-    console.warn('[Alert] 嗶聲例外:', e);
+    console.warn('[Alert] 音效例外:', e);
     maybeNotify(slot);
   }
 }
@@ -3230,13 +3204,12 @@ function maybeNotify(slot) {
 }
 
 function playAlertSound(slot) {
-  // slot: 1 (9 分鐘提示音) 或 2 (19 分鐘提示音);未指定預設為 1
   slot = slot === 2 ? 2 : 1;
   if (_soundMode === 'off') {
     console.log('[Alert] 音效模式為 off,跳過 slot ' + slot);
     return;
   }
-  // 自訂音檔模式
+  // 自訂音檔模式 (⚙ 面板上傳的)
   if (_soundMode === 'custom') {
     const active = getActiveSound(slot);
     if (active) {
@@ -3246,19 +3219,17 @@ function playAlertSound(slot) {
         audio.play().then(() => {
           console.log('[Alert] ✓ slot ' + slot + ' 自訂音效已播放: ' + active.name);
         }).catch(err => {
-          console.warn('[Alert] ✗ slot ' + slot + ' 自訂音效失敗: ' + err.name + ' - 改用備援嗶聲');
-          // 自動備援:自訂音檔播不出來時,改用 Web Audio 嗶聲
-          playBeep(slot);
+          console.warn('[Alert] ✗ slot ' + slot + ' 自訂音效失敗: ' + err.name);
+          maybeNotify(slot);
         });
       } catch (e) {
-        console.warn('[Alert] 自訂音效例外:', e, ' - 改用備援嗶聲');
-        playBeep(slot);
+        console.warn('[Alert] 自訂音效例外:', e);
+        maybeNotify(slot);
       }
       return;
     }
-    // 該 slot 沒指派自訂音檔 -> fallback 到預設嗶聲
   }
-  // 預設嗶聲
+  // Beep 模式 or custom 沒有指派 → 播 GitHub 音檔
   playBeep(slot);
 }
 // 頁面載入時更新按鈕狀態
