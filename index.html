@@ -1896,7 +1896,9 @@ function renderTable() {
           '<td colspan="4" style="padding:4px 6px;font-size:10px;color:var(--text);font-family:var(--mono);border-bottom:1px dashed var(--border);">'
             +escHtml(opCustom)
           +'<\/td>'+   // E2+E2.5+E3+E4 合併
-          '<td style="padding:0;border:none;"><\/td>'+   // E5
+          '<td class="e5-cell" style="padding:4px 6px 4px 0px;font-size:10.5px;color:var(--muted);font-family:var(--mono);white-space:nowrap;border-bottom:1px dashed var(--border);">'
+            +(rec.creationDate ? '<span style="font-size:9.5px;color:var(--muted2);">Purchase Date<\/span> '+escHtml(formatEventDate(rec.creationDate)) : '')
+          +'<\/td>'+   // E5: Purchase Date
           '<td style="padding:0;border:none;"><\/td>'+   // E6
           '<td style="padding:0;border:none;"><\/td>'+   // E7
           '<td style="padding:0;border:none;"><\/td>'+   // E8
@@ -1918,8 +1920,8 @@ function renderTable() {
           '<td style="font-size:11px;color:var(--muted2);font-family:var(--mono);vertical-align:middle;padding:4px 6px;">'+(si===0 && rec.betName ? escHtml(rec.betName) : '')+'<\/td>'+   // E4: Bet Type
           '<td class="e5-cell" style="font-size:12px;color:var(--muted2);font-family:var(--mono);vertical-align:middle;padding:4px 6px 4px 0px;font-weight:500;">'
             +'<div>'+(s.leagueName||'—')+'<\/div>'
-            +(si===0 && rec.creationDate ? '<div style="font-size:11px;color:var(--muted);margin-top:2px;font-weight:400;">'+escHtml(formatEventDate(rec.creationDate))+'<\/div>' : '')
-          +'<\/td>'+   // E5: LeagueName + CreationDate (UTC+8)
+            +(s.startEventDate ? '<div style="font-size:10px;color:var(--muted);margin-top:2px;font-weight:400;">'+escHtml(formatEventDate(s.startEventDate))+'<\/div>' : '')
+          +'<\/td>'+   // E5: LeagueName + EventDate
           '<td style="width:360px;max-width:360px;padding:4px 6px;vertical-align:middle;">'
             +'<div style="font-size:12px;color:rgba(255,255,255,0.75);font-family:var(--mono);word-break:break-word;line-height:1.4;" title="'+escHtml(s.eventName||'')+'">'+escHtml(s.eventName||'—')+'<\/div>'
             +'<div style="font-size:12px;color:var(--muted2);font-family:var(--mono);margin-top:2px;word-break:break-word;line-height:1.4;">'
@@ -2320,22 +2322,18 @@ function doSaveRecord(targetId) {
   if (!rec0) return;
   const box2 = document.getElementById('customScriptInput').value.trim();
   rec0.note = box2;
-  const checkedEvents = [];
+  const checkedItemsForSave = [];
   document.querySelectorAll('.sel-item').forEach(item => {
-    if (item.querySelector('.sel-check.checked')) checkedEvents.push(item.dataset.event);
+    if (item.querySelector('.sel-check.checked')) checkedItemsForSave.push(item);
   });
-  if (checkedEvents.length) {
-    rec0.eventName = checkedEvents.join(', ');
-    const allItems = document.querySelectorAll('.sel-item');
-    for (const item of allItems) {
-      if (item.querySelector('.sel-check.checked')) {
-        const status = item.dataset.status;
-        if (status !== undefined) rec0.firstSelStatus = parseInt(status);
-        if (item.dataset.eventId) rec0.eventId = item.dataset.eventId;
-        if (item.dataset.startDate) rec0.startEventDate = item.dataset.startDate;
-        break;
-      }
-    }
+  // 只有恰好 1 筆勾選時才更新 rec0 (因為多筆勾選時每筆已獨立建立紀錄)
+  if (checkedItemsForSave.length === 1) {
+    const item = checkedItemsForSave[0];
+    rec0.eventName = item.dataset.event || rec0.eventName;
+    const status = item.dataset.status;
+    if (status !== undefined) rec0.firstSelStatus = parseInt(status);
+    if (item.dataset.eventId) rec0.eventId = item.dataset.eventId;
+    if (item.dataset.startDate) rec0.startEventDate = item.dataset.startDate;
   }
   saveRecords();
   renderTable();
@@ -2584,11 +2582,10 @@ function recordNote() {
   } else {
     // Create one record per checked event (in reverse order so first checked appears first)
     checkedItems.reverse().forEach((item, i) => {
-      // 把勾選的那筆 selection 排到第一位,確保右側顯示正確的賽事資料
+      // 只放勾選的那筆 selection
       const itemIdx = parseInt(item.dataset.idx ?? '0');
       const checkedSel = selData[itemIdx] || selData[0];
-      const otherSels  = selData.filter((_, si) => si !== itemIdx);
-      const orderedSels = checkedSel ? [checkedSel, ...otherSels] : selData;
+      const orderedSels = checkedSel ? [checkedSel] : [];
       const newRec = {
         id: Date.now() + i + Math.floor(Math.random()*1000), ticketId, betId: betIdVal, reserveId: reserveIdVal,
         eventName: item.dataset.event || '—',
