@@ -3202,7 +3202,8 @@ async function loadPhrasesFromGitHub() {
 
 function renderInlinePhrases() {
   const container = document.getElementById('inlinePhraseGroups');
-  if (!container) return;
+  if (!container || container._rendered) return;
+  container._rendered = true;
   try { const n = localStorage.getItem('phraseName'); if (n) { const el = document.getElementById('inlinePhraseName'); if (el) el.value = n; } } catch {}
 
   container.innerHTML = '<div style="text-align:center;color:var(--muted2);padding:20px;font-family:var(--mono);font-size:11px;">載入話術中...</div>';
