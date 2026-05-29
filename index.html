@@ -632,6 +632,13 @@ button {
 }
 button:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.2); }
 button:active { transform: scale(0.97); }
+.inline-phrase-card:focus, .inline-phrase-card:focus-visible { outline: none; }
+.phrase-card:focus, .phrase-card:focus-visible { outline: none; }
+div[onclick]:focus, div[onclick]:focus-visible { outline: none !important; }
+.inline-phrase-card { -webkit-tap-highlight-color: transparent; user-select: none; }
+.inline-phrase-card * { user-select: none; }
+.inline-phrase-card:focus, .inline-phrase-card:active { outline: none !important; box-shadow: none !important; }
+.inline-phrase-card.copied { border-color: var(--success) !important; }
 
 .btn-primary { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); font-weight: 500; }
 .btn-primary:hover { background: rgba(200,240,96,0.2); }
@@ -694,6 +701,10 @@ button:active { transform: scale(0.97); }
 .right-col .col-header { background: var(--surface); }
 
 .table-actions { display: flex; align-items: center; gap: 8px; }
+.right-tab { font-size:11px;font-family:var(--mono);padding:0;height:49px;width:90px;border:none;border-bottom:2px solid transparent;background:transparent;color:var(--muted2);cursor:pointer;letter-spacing:0.04em;transition:color 0.15s, border-color 0.15s, background 0.15s; }
+.right-tab::after { content:none; }
+.right-tab:hover { color:var(--text);background:rgba(255,255,255,0.04); }
+.right-tab.active { color:var(--text);border-bottom-color:var(--accent);font-weight:600; }
 
 .record-count {
   font-size: 10px; font-family: var(--mono); color: var(--muted2);
@@ -1015,6 +1026,8 @@ td:hover .td-note-edit-btn { display: inline-block; }
   transition: all 0.12s; white-space: nowrap; line-height: 1;
 }
 .phrase-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim2); }
+.phrase-card:hover { border-color: var(--accent) !important; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+.nav-tab-active { border-color: var(--accent) !important; }
 .phrase-btn.copied { border-color: var(--success); color: var(--success); background: var(--success-dim); }
 .phrase-btn.phrase-active { border-color: var(--success); color: var(--success); background: var(--success-dim); }
 .phrase-cat-label.phrase-cat-active { color: var(--success); }
@@ -1049,6 +1062,7 @@ td:hover .td-note-edit-btn { display: inline-block; }
       <p>// 投注單 JSON 解析 + 紀錄管理</p>
     </div>
   </div>
+
   <div style="width:120px;flex-shrink:0;"></div>
   <div style="display:flex;align-items:center;gap:6px;flex:1;max-width:420px;">
     <input id="krakenIdInput" type="text" placeholder="Purchase ID..." style="flex:1;background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:11px;padding:5px 10px;outline:none;min-width:0;" onkeydown="if(event.key==='Enter')openKraken()">
@@ -1109,7 +1123,7 @@ td:hover .td-note-edit-btn { display: inline-block; }
   <div class="status-dot">ready</div>
 </header>
 
-<div class="workspace">
+<div class="workspace" id="parserPage">
 
   <!-- LEFT -->
   <div class="left-col">
@@ -1186,23 +1200,26 @@ td:hover .td-note-edit-btn { display: inline-block; }
 
   <!-- RIGHT -->
   <div class="right-col">
-    <div class="col-header">
-      <div style="display:flex;align-items:center;gap:34px;">
-        <span class="col-label">RECORDS — 解析紀錄</span>
+    <div class="col-header" style="padding:0;gap:0;justify-content:flex-start;">
+      <!-- Tab 切換 -->
+      <button id="tabRecords" class="right-tab active" data-label="📋 解析紀錄" onclick="switchRightTab('records')" style="margin-left:10px;">📋 解析紀錄</button>
+      <button id="tabPhrases" class="right-tab" data-label="💬 話術庫" onclick="switchRightTab('phrases')">💬 話術庫</button>
+      <!-- 搜尋 + 動作（只在 records tab 顯示） -->
+      <div id="recordsTabActions" style="display:flex;align-items:center;gap:8px;flex:1;min-width:0;justify-content:space-between;padding:0 16px;">
         <div style="position:relative;">
-          <input id="recordSearch" type="text" placeholder="搜尋..." oninput="searchRecords(this.value)" style="background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:10px;padding:5px 24px 5px 8px;outline:none;width:220px;">
+          <input id="recordSearch" type="text" placeholder="搜尋..." oninput="searchRecords(this.value)" style="background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:10px;padding:5px 24px 5px 8px;outline:none;width:200px;">
           <span onclick="document.getElementById('recordSearch').value='';searchRecords('');" style="position:absolute;right:7px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--muted2);font-size:11px;" title="清除">✕</span>
         </div>
-      </div>
-      <div class="table-actions">
-        <span class="record-count" id="recordCount">0 筆</span>
-        <button class="undo-btn" onclick="undoDelete()" id="undoBtn" style="display:none;">復原</button>
-        <button onclick="clearRecords()" style="font-size:10px;padding:4px 10px;">清除紀錄</button>
-        <button onclick="exportCSV()" style="font-size:10px;padding:4px 10px;">匯出 CSV</button>
+        <div class="table-actions">
+          <span class="record-count" id="recordCount">0 筆</span>
+          <button class="undo-btn" onclick="undoDelete()" id="undoBtn" style="display:none;">復原</button>
+          <button onclick="clearRecords()" style="font-size:10px;padding:4px 10px;">清除紀錄</button>
+          <button onclick="exportCSV()" style="font-size:10px;padding:4px 10px;">匯出 CSV</button>
+        </div>
       </div>
     </div>
 
-    <div class="table-wrap">
+    <div class="table-wrap" id="recordsPanel">
       <div class="empty-state" id="emptyState">
         <i class="empty-icon">&#9744;</i>
         <span>跟你說一件事 那就是沒事</span>
@@ -1230,11 +1247,30 @@ td:hover .td-note-edit-btn { display: inline-block; }
         <tbody id="recordBody"></tbody>
       </table>
     </div>
+
+    <!-- 話術庫 Tab 面板 -->
+    <div id="inlinePhrasePanel" style="display:none;flex-direction:column;flex:1;overflow-y:auto;background:var(--surface2);" class="table-wrap">
+      <div id="inlinePhraseNavBar" style="position:sticky;top:0;z-index:10;background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;height:49px;min-height:49px;display:flex;gap:0;flex-wrap:nowrap;align-items:center;overflow-x:auto;flex-shrink:0;">
+        <span style="font-size:9px;color:var(--muted2);font-family:var(--mono);letter-spacing:0.1em;text-transform:uppercase;margin-right:10px;flex-shrink:0;">跳轉</span>
+        <div id="inlineJumpBtns" style="display:flex;gap:4px;align-items:center;flex-shrink:0;"></div>
+        <div style="flex:1;"></div>
+        <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
+          <input type="text" id="inlinePhraseName" oninput="saveInlinePhraseName()" placeholder="✍ 簽名" style="background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:10px;padding:4px 8px;outline:none;width:90px;height:26px;box-sizing:border-box;">
+          <input type="text" id="inlinePhraseSearch" oninput="filterInlinePhrases()" placeholder="🔍 搜尋..." style="background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:10px;padding:4px 24px 4px 8px;outline:none;width:140px;height:26px;box-sizing:border-box;">
+        </div>
+      </div>
+      <div style="padding:14px 20px;box-sizing:border-box;">
+        <div id="inlinePhraseGroups" style="display:flex;flex-direction:column;gap:16px;"></div>
+      </div>
+    </div>
+
   </div>
 
 
 
 </div>
+
+<!-- 話術庫頁面 -->
 
 <footer>
   <span>BET PARSER v2.0</span>
@@ -1766,7 +1802,7 @@ function renderTable() {
       const recId = Number(e.target.dataset.recid);
       const rec = records.find(r => r.id === recId);
       const text = rec ? (rec.reply || '') : '';
-      if (!text) return;
+      if (text === undefined) return;  // key 不存在才跳過，空字串也顯示
       safeCopy(text, () => {
         e.target.textContent = '✓';
         setTimeout(() => e.target.textContent = '⧉', 1000);
@@ -2117,24 +2153,102 @@ const SITE_ID_MAP = {
 };
 
 const PHRASE_MAP = {
-  "settled_en": "Thank you for waiting. The bet has been settled but BO needs 5-10 minutes to be updated. Please check again then. Thank you.",
+  // ── 開頭語 ──
+  "greeting_open_en": "We are checking this, please allow us a moment for that. Thank you.",
+  "greeting_open_zh": "您好，立即为您确认，请稍等。",
+  "greeting_open_ko": "안녕하세요, 지금 바로 확인해 드리겠습니다. 잠시만 기다려 주십시오.",
+
+  "greeting_wait_en": "The relevant team is checking it and we will keep you posted. Thank you for your patience.",
+  "greeting_wait_zh": "相关单位确认中，一有消息会立即通知贵司，谢谢。",
+  "greeting_wait_ko": "관련 부서에서 확인 중이며, 소식이 나오는 즉시 귀사에 바로 안내드리겠습니다. 감사합니다.",
+
+  // ── 結算 ──
+  "settled_en": "Thank you for waiting. The bet has been settled but BO needs 5-10 mins to be updated. Please check again then. Thank you.",
   "settled_zh": "注单已结算，后台更新需要5-10分钟，烦请贵司稍等刷新查看，谢谢。",
   "settled_ko": "주문이 결제 완료되었습니다. 백엔드 업데이트에는 5~10분이 소요될 수 있으니, 잠시 후 새로 고침 후 확인 부탁드립니다. 감사합니다.",
-  "no info_en": "We have no official information available yet. Once there is any update, the bets will be settled accordingly.",
-  "no info_zh": "该赛事目前尚未有官方讯息，待确认官方赛果后将会立即自动结算，谢谢。",
-  "no info_ko": "현재 해당 경기에 대한 공식 정보가 없습니다. 업데이트가 있을 경우, 배팅 정보는 해당 설정에 맞게 수정될 것입니다. 감사합니다.",
-  "24hrs_en": "This event has been postponed. \nOur team will wait up to 24 hours for official confirmation and will process the settlement accordingly once the information is received. \nThank you for your patience and understanding.",
-  "24hrs_zh": "此赛事延期，相关团队将会等候24小时，待收到官方信息后进行相对应处理，还请您耐心等候，谢谢。",
-  "24hrs_ko": "해당 경기는 연기되었습니다.\n당사 팀은 공식 결과를 확인하기 위해 최대 24시간 동안 대기한 후, 관련 규정에 따라 처리할 예정입니다.\n기다려 주셔서 감사합니다.",
-  "review_en": "The event is still being reviewed by the team and it will take some time for the team to investigate, as soon as there is any news bet will be settled accordingly as soon as possible. Thank you for your patience in advance.",
-  "review_zh": "相关团队在审核该赛事，团队需要一些时间进行调查，一旦有任何消息注单将会尽快相对应地安置正确结算，提前感谢您的耐心等待。",
-  "review_ko": "관련 팀에서 해당 경기를 검토 중입니다. 팀에서 조사에 시간이 필요하므로, 업데이트가 있을 경우 주문은 적절하게 처리되고 빠르게 결제될 것입니다. 기다려 주셔서 감사합니다.",
-  "check_en": "We are checking on it, please allow us a moment for that. Thank you.",
-  "check_zh": "您好，立即为您查询确认，请稍候。",
-  "check_ko": "안녕하세요, 지금 바로 확인해 드리겠습니다. 잠시만 기다려 주십시오.",
-  "track_en": "The relevant team is still working on it and we will keep you posted. Thank you for your patience.",
-  "track_zh": "相关单位仍在调查中，稍后有进一步更新，将会立即与您通知，提前感谢您的耐心等候。",
-  "track_ko": "관련 부서에서 아직 확인 중이며, 추가적인 업데이트가 있을 경우 즉시 알려드리겠습니다. 미리 기다려 주셔서 감사합니다."
+
+  "no_info_en": "We have no official information available yet. Once there is an update, the bets will be modified and set accordingly.",
+  "no_info_zh": "经确认，该赛事暂无官方资讯，待确认官方赛果后将会立即自动结算，还请您理解并解释给予您的玩家，谢谢。",
+  "no_info_ko": "현재 해당 경기에 대한 공식 정보가 없습니다. 업데이트가 있을 경우, 배팅 정보는 해당 설정에 맞게 수정될 것입니다. 감사합니다.",
+
+  "postponed_en": "This event has been postponed.\nOur team will wait up to 24 hours for official confirmation and will process the settlement accordingly once the information is received.\nThank you for your patience and understanding.",
+  "postponed_zh": "此赛事延期，相关团队将会等候24小时，待收到官方信息后进行相对应处理，还请您耐心等候，谢谢。",
+  "postponed_ko": "해당 경기는 연기되었습니다.\n당사 팀은 공식 결과를 확인하기 위해 최대 24시간 동안 대기한 후, 관련 규정에 따라 처리할 예정입니다.\n기다려 주셔서 감사합니다.",
+
+  "in_play_en": "Match is still in play, will be settled when the event is finished.",
+  "in_play_zh": "赛事进行中，会于完赛后尽快结算。",
+  "in_play_ko": "경기는 아직 진행 중이며, 이벤트가 종료되면 결과가 확정됩니다.",
+
+  "correct_odds_en": "After review by our team, the odds are correct and the bet is valid.",
+  "correct_odds_zh": "相关团队确认盘口/赔率正确，注单有效。",
+  "correct_odds_ko": "",
+
+  // ── SA ──
+  "sa_criteria_en": "To continuously strive to improve service efficiency, we would like to inform you of the standard adjustment regarding member anomaly checks. These changes aim to ensure a smoother experience for both our team and your operations.\n\n1. Members with higher stakes, the average stake is over 100 GBP and at least 5 bets in 30 days.\n\n2. Members win over 1000 GBP in 30 days.\n\nPlease note that unfortunately, we are unable to provide inspection services for cases that do not meet the above criteria.",
+  "sa_criteria_zh": "为了持续努力提高服务效率，告知您关于会员异常检查的标准调整。这些变化旨在确保我方团队和您的营运都能获得更加顺畅的体验。\n\n更新后的异常检查标准如下：\n\n1. 三十天内会员投注超过五张且平均金额高于 900 人民币。\n\n2. 三十天内净盈利高于 9000 人民币。\n\n请注意，要是不符合上述标准的案例，很遗憾地，我们无法提供检查服务。\n\n查看该玩家不符合查询标准。",
+  "sa_criteria_ko": "서비스 효율성을 지속적으로 향상시키기 위해 회원 이상 여부 확인 기준 조정 사항을 안내드립니다. 이번 조정은 양사 운영 및 업무 진행의 원활함을 높이기 위한 목적입니다.\n\n- 고액 베팅 회원: 최근 30일 기준 평균 베팅 금액이 100 GBP 이상이며, 최소 5회 이상 베팅한 회원\n\n- 최근 30일 기준 수익금이 1000 GBP 이상인 회원\n\n상기 기준에 부합하지 않는 경우에는 점검 서비스를 제공해드리기 어려운 점 양해 부탁드립니다. 감사합니다.",
+
+  "sa_no_irr_en": "No irregularities.",
+  "sa_no_irr_zh": "没有异常。",
+  "sa_no_irr_ko": "문제 없음.",
+
+  "sa_arb_en": "The player is arbitrager, limit 1 GBP.",
+  "sa_arb_zh": "套利玩家，限额1英镑。",
+  "sa_arb_ko": "차익거래자, 한도 1파운드.",
+
+  // ── 排錯 ──
+  "debug_login_en": "We've tested the login and it works properly. It's possible that the member page hasn't finished loading. Please ask the player to clear their cache and try logging in again in a stable network environment. Thank you.",
+  "debug_login_zh": "您好，经测试登入正常，可能是会员网路未加载完成，还请引导玩家清除缓存，并在良好的网路环境下，重新尝试登入下，谢谢。",
+  "debug_login_ko": "안녕하세요. 테스트 결과 로그인은 정상적으로 이루어졌습니다. 회원님의 네트워크 연결이 완전히 설정되지 않았을 가능성이 있으니, 플레이어에게 캐시를 삭제하고 안정적인 네트워크 환경에서 다시 로그인을 시도해 보도록 안내해 주시기 바랍니다. 감사합니다.",
+
+  // ── 轉交 ──
+  "fwd_weekday_en": "We have submitted your request and will notify your company as soon as we have any updates. Thank you.",
+  "fwd_weekday_zh": "我们已为您提交，一有消息会立即通知贵司，谢谢。",
+  "fwd_weekday_ko": "신청을 완료했습니다. 소식이 있는 대로 귀사에 즉시 알려드리겠습니다. 감사합니다.",
+
+  "fwd_holiday_en": "We have submitted your request, but the relevant department is currently closed. The team typically begins work at approximately 11:00 UTC +8. We will notify your company as soon as we have any updates. Thank you.",
+  "fwd_holiday_zh": "我们已为您提交，但目前非相关部门的工作时段，相关团队开始上班时间約11:00 UTC +8，一有消息会立即通知贵司，谢谢。",
+  "fwd_holiday_ko": "귀사의 요청을 접수했습니다. 다만 현재 해당 부서의 업무 시간 외이므로, 담당 팀은 약 11:00 (UTC+8)부터 업무를 시작합니다. 소식이 있는 대로 즉시 귀사에 알려드리겠습니다. 감사합니다.",
+
+  // ── 開頭語：確認中 ──
+  "greeting_checking_en": "please allow us a moment for that. Thank you.",
+  "greeting_checking_zh": "确认中，请稍等。",
+  "greeting_checking_ko": "",
+
+  // ── 結算：重新結算 ──
+  "resettled_en": "Thank you for waiting. The bet has been resettled but BO needs 5-10 mins to be updated. Please check again then. Thank you.",
+  "resettled_zh": "此注单已重新修正，后台更新需要5-10分钟，烦请贵司稍等刷新查看，谢谢。",
+  "resettled_ko": "베팅이 재설정되었습니다. 백엔드 업데이트에는 5~10분이 소요될 수 있으니, 잠시 후 새로 고침 후 확인 부탁드립니다. 감사합니다.",
+
+  // ── 結算：無參考連結 ──
+  "no_link_en": "Unfortunately, we cannot provide any official links for the match at the moment, but the bet is settled correctly according to our source.",
+  "no_link_zh": "该赛事未有参考链结可提供，依据我方赛果结算正确。",
+  "no_link_ko": "",
+
+  // ── 結算：回報中斷 ──
+  "feed_interrupt_en": "due to feed interruption, line and odds are not updated",
+  "feed_interrupt_zh": "因赛果回报中断，注单盘口赔率未更新",
+  "feed_interrupt_ko": "",
+
+  // ── 結算：時間更正 ──
+  "wrong_time_en": "we had wrong time, it will be played at 2025-09-07 07:15 UTC\nbet will be settled when it is finished",
+  "wrong_time_zh": "经确认，原先提供不正确赛事时间，将于2026-03-05 16:00 UTC进行\n注单会于赛事结束后结算",
+  "wrong_time_ko": "",
+
+  // ── SA：No Limit ──
+  "sa_no_limit_en": "No limit",
+  "sa_no_limit_zh": "沒有限額",
+  "sa_no_limit_ko": "",
+
+  // ── SA：持續關注 ──
+  "sa_monitor_en": "no irregularities, under close monitor",
+  "sa_monitor_zh": "目前没有异常，持续关注中",
+  "sa_monitor_ko": "",
+
+  // ── 排錯：請提供帳號 ──
+  "debug_account_en": "May you provide URL and test account? We will check further",
+  "debug_account_zh": "请您提供网址以及测试账号，以便我们进一步查看，谢谢。",
+  "debug_account_ko": ""
 };
 
 const scriptState = { open: false, lost: false, custom: false, dis: false, odds: false };
@@ -2237,6 +2351,189 @@ function flashSuccess(btn, restoreText, ms) {
   }, ms);
 }
 
+// ── 分頁切換 ──
+function switchPage(page) {
+  const parserPage = document.getElementById('parserPage');
+  const phrasesPage = document.getElementById('phrasesPage');
+  const tabP = document.getElementById('navTabParser');
+  const tabPh = document.getElementById('navTabPhrases');
+  if (page === 'phrases') {
+    parserPage.style.display = 'none';
+    phrasesPage.style.display = 'flex';
+    tabP.classList.remove('nav-tab-active'); tabP.style.color = 'var(--muted2)';
+    tabPh.classList.add('nav-tab-active'); tabPh.style.color = 'var(--text)';
+    renderPhrases();
+  } else {
+    parserPage.style.display = 'grid';
+    phrasesPage.style.display = 'none';
+    tabPh.classList.remove('nav-tab-active'); tabPh.style.color = 'var(--muted2)';
+    tabP.classList.add('nav-tab-active'); tabP.style.color = 'var(--text)';
+  }
+}
+
+// ── 話術庫渲染 ──
+const PHRASE_SECTIONS = [
+  {
+    id: 'section-greeting', label: '開頭語', icon: '💬',
+    groups: [
+      { key: 'greeting_open', label: '開頭', icon: '👋' },
+      { key: 'greeting_wait', label: '等候', icon: '⏳' },
+      { key: 'greeting_checking', label: '確認中', icon: '🔄' }
+    ]
+  },
+  {
+    id: 'section-settled', label: '結算', icon: '✅',
+    groups: [
+      { key: 'settled', label: '結算 / Settled', icon: '✅' },
+      { key: 'resettled', label: '重新結算 / Resettled', icon: '🔁' },
+      { key: 'no_info', label: 'No Info', icon: 'ℹ️' },
+      { key: 'no_link', label: '無參考連結 / No Link', icon: '🔗' },
+      { key: 'postponed', label: 'Postponed', icon: '📅' },
+      { key: 'in_play', label: '進行中', icon: '▶️' },
+      { key: 'correct_odds', label: 'Correct Line/Odds', icon: '📊' },
+      { key: 'feed_interrupt', label: '回報中斷 / Feed', icon: '📡' },
+      { key: 'wrong_time', label: '時間更正 / Wrong Time', icon: '🕐' }
+    ]
+  },
+  {
+    id: 'section-sa', label: 'SA', icon: '🔖',
+    groups: [
+      { key: 'sa_criteria', label: 'Criteria', icon: '📋' },
+      { key: 'sa_no_irr', label: 'No Irregularities', icon: '✔️' },
+      { key: 'sa_arb', label: 'Arbitrager', icon: '⚖️' },
+      { key: 'sa_no_limit', label: 'No Limit', icon: '🔓' },
+      { key: 'sa_monitor', label: '持續關注 / Monitor', icon: '👁️' }
+    ]
+  },
+  {
+    id: 'section-debug', label: '排錯', icon: '🔧',
+    groups: [
+      { key: 'debug_login', label: '測試正常', icon: '🖥️' },
+      { key: 'debug_account', label: '請提供帳號', icon: '🔑' }
+    ]
+  },
+  {
+    id: 'section-forward', label: '轉交', icon: '📨',
+    groups: [
+      { key: 'fwd_weekday', label: '工作日', icon: '📅' },
+      { key: 'fwd_holiday', label: '非工作日', icon: '🌙' }
+    ]
+  }
+];
+const PHRASE_GROUPS = PHRASE_SECTIONS.flatMap(s => s.groups);
+const PHRASE_LANGS = [
+  { suffix: '_en', label: 'EN', color: '#4CAF50' },
+  { suffix: '_zh', label: '中', color: '#2196F3' },
+  { suffix: '_ko', label: '韓', color: '#FF9800' }
+];
+
+function renderPhrases() {
+  const container = document.getElementById('phraseGroups');
+  if (!container) return;
+  try {
+    const savedName = localStorage.getItem('phraseName');
+    const nameInput = document.getElementById('phraseName');
+    if (savedName && nameInput && !nameInput.value) nameInput.value = savedName;
+  } catch {}
+  container.innerHTML = '';
+
+  function makeCard(text, lang) {
+    return '<div class="phrase-card" data-text="'+escHtml(text)+'" data-search="'+escHtml(text.toLowerCase())+'" onclick="copyPhraseCard(this)" '
+      +'style="position:relative;border:1px solid var(--border);border-radius:8px;padding:14px 16px;background:var(--surface2);cursor:pointer;transition:all 0.15s;">'
+      +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">'
+      +'<span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:4px;background:'+lang.color+';color:#fff;">'+lang.label+'</span>'
+      +'<span class="phrase-card-copied" style="font-size:10px;color:var(--success);opacity:0;transition:opacity 0.2s;">✓ 已複製</span>'
+      +'</div>'
+      +'<div style="font-size:12px;color:'+(text?'var(--text)':'var(--muted2)')+';line-height:1.6;white-space:pre-wrap;word-break:break-word;font-family:var(--mono);">'
+      +(text?escHtml(text):'（尚無內容）')+'</div></div>';
+  }
+
+  PHRASE_SECTIONS.forEach(section => {
+    const sectionEl = document.createElement('div');
+    sectionEl.id = section.id;
+    sectionEl.style.cssText = 'padding-top:8px;';
+    sectionEl.innerHTML = '<div style="font-size:15px;font-weight:700;color:var(--text);font-family:var(--mono);padding:10px 16px;background:var(--surface2);border-radius:8px;border-left:4px solid var(--accent);margin-bottom:16px;">'
+      +section.icon+' '+section.label+'</div>';
+
+    section.groups.forEach(grp => {
+      const groupDiv = document.createElement('div');
+      groupDiv.className = 'phrase-group';
+      groupDiv.id = 'phraseGroup-' + grp.key;
+      groupDiv.dataset.label = grp.label;
+      groupDiv.style.marginBottom = '20px';
+      let cardsHtml = '';
+      PHRASE_LANGS.forEach(lang => {
+        const pkey = grp.key + lang.suffix;
+        const text = PHRASE_MAP[pkey];
+        if (text === undefined) return;
+        cardsHtml += makeCard(text, lang);
+      });
+      groupDiv.innerHTML =
+        '<div style="font-size:12px;font-weight:600;color:var(--muted2);margin-bottom:8px;font-family:var(--mono);padding-left:4px;">'+grp.icon+' '+grp.label+'</div>'
+        +'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;">'+cardsHtml+'</div>';
+      sectionEl.appendChild(groupDiv);
+    });
+    container.appendChild(sectionEl);
+  });
+}
+
+function savePhraseName() {
+  try { localStorage.setItem('phraseName', document.getElementById('phraseName').value); } catch {}
+}
+
+function copyPhraseCard(el) {
+  let text = el.dataset.text;
+  if (!text) return;
+  const name = (document.getElementById('phraseName')?.value || '').trim();
+  if (name) text = text + ' - ' + name;
+  safeCopy(text, () => {
+    el.style.borderColor = 'var(--success)';
+    el.style.background = 'var(--success-dim)';
+    const copied = el.querySelector('.phrase-card-copied');
+    if (copied) copied.style.opacity = '1';
+    setTimeout(() => {
+      el.style.borderColor = '';
+      el.style.background = 'var(--surface2)';
+      if (copied) copied.style.opacity = '0';
+    }, 1200);
+  });
+}
+
+function jumpToGroup(key) {
+  jumpToSection('phraseGroup-' + key);
+}
+
+function jumpToSection(id) {
+  const page = document.getElementById('phrasesPage');
+  const el = document.getElementById(id);
+  if (!el || !page) return;
+  const navH = (document.getElementById('phraseNavBar') || {}).offsetHeight || 0;
+  // 計算 el 相對於 page 的 offsetTop
+  let top = 0;
+  let node = el;
+  while (node && node !== page) {
+    top += node.offsetTop;
+    node = node.offsetParent;
+  }
+  page.scrollTo({ top: top - navH - 8, behavior: 'smooth' });
+  el.style.outline = '2px solid var(--accent)';
+  el.style.borderRadius = '8px';
+  setTimeout(() => { el.style.outline = ''; el.style.borderRadius = ''; }, 1000);
+}
+
+function filterPhrases() {
+  const q = (document.getElementById('phraseSearch').value || '').toLowerCase().trim();
+  document.querySelectorAll('.phrase-group').forEach(grp => {
+    let visibleCount = 0;
+    grp.querySelectorAll('.phrase-card').forEach(card => {
+      const match = !q || (card.dataset.search || '').includes(q);
+      card.style.display = match ? 'block' : 'none';
+      if (match) visibleCount++;
+    });
+    grp.style.display = visibleCount > 0 ? 'block' : 'none';
+  });
+}
+
 function safeCopy(text, onSuccess) {
   if (navigator.clipboard && window.isSecureContext) {
     navigator.clipboard.writeText(text).then(onSuccess).catch(() => {
@@ -2322,18 +2619,22 @@ function doSaveRecord(targetId) {
   if (!rec0) return;
   const box2 = document.getElementById('customScriptInput').value.trim();
   rec0.note = box2;
-  const checkedItemsForSave = [];
+  const checkedEvents = [];
   document.querySelectorAll('.sel-item').forEach(item => {
-    if (item.querySelector('.sel-check.checked')) checkedItemsForSave.push(item);
+    if (item.querySelector('.sel-check.checked')) checkedEvents.push(item.dataset.event);
   });
-  // 只有恰好 1 筆勾選時才更新 rec0 (因為多筆勾選時每筆已獨立建立紀錄)
-  if (checkedItemsForSave.length === 1) {
-    const item = checkedItemsForSave[0];
-    rec0.eventName = item.dataset.event || rec0.eventName;
-    const status = item.dataset.status;
-    if (status !== undefined) rec0.firstSelStatus = parseInt(status);
-    if (item.dataset.eventId) rec0.eventId = item.dataset.eventId;
-    if (item.dataset.startDate) rec0.startEventDate = item.dataset.startDate;
+  if (checkedEvents.length) {
+    rec0.eventName = checkedEvents.join(', ');
+    const allItems = document.querySelectorAll('.sel-item');
+    for (const item of allItems) {
+      if (item.querySelector('.sel-check.checked')) {
+        const status = item.dataset.status;
+        if (status !== undefined) rec0.firstSelStatus = parseInt(status);
+        if (item.dataset.eventId) rec0.eventId = item.dataset.eventId;
+        if (item.dataset.startDate) rec0.startEventDate = item.dataset.startDate;
+        break;
+      }
+    }
   }
   saveRecords();
   renderTable();
@@ -2582,10 +2883,11 @@ function recordNote() {
   } else {
     // Create one record per checked event (in reverse order so first checked appears first)
     checkedItems.reverse().forEach((item, i) => {
-      // 只放勾選的那筆 selection
+      // 把勾選的那筆 selection 排到第一位,確保右側顯示正確的賽事資料
       const itemIdx = parseInt(item.dataset.idx ?? '0');
       const checkedSel = selData[itemIdx] || selData[0];
-      const orderedSels = checkedSel ? [checkedSel] : [];
+      const otherSels  = selData.filter((_, si) => si !== itemIdx);
+      const orderedSels = checkedSel ? [checkedSel, ...otherSels] : selData;
       const newRec = {
         id: Date.now() + i + Math.floor(Math.random()*1000), ticketId, betId: betIdVal, reserveId: reserveIdVal,
         eventName: item.dataset.event || '—',
@@ -2795,6 +3097,183 @@ function exportCSV() {
   const a = document.createElement('a');
   a.href = url; a.download = 'bet_records_'+new Date().toISOString().slice(0,10)+'.csv';
   a.click(); URL.revokeObjectURL(url);
+}
+
+// ── 右側 Tab 切換 ──
+function switchRightTab(tab) {
+  const tabRec = document.getElementById('tabRecords');
+  const tabPhr = document.getElementById('tabPhrases');
+  const recPanel = document.getElementById('recordsPanel');
+  const phPanel = document.getElementById('inlinePhrasePanel');
+  const recActions = document.getElementById('recordsTabActions');
+  if (tab === 'records') {
+    tabRec.classList.add('active'); tabPhr.classList.remove('active');
+    recPanel.style.display = ''; phPanel.style.display = 'none';
+    recActions.style.display = 'flex';
+  } else {
+    tabPhr.classList.add('active'); tabRec.classList.remove('active');
+    recPanel.style.display = 'none'; phPanel.style.display = 'flex';
+    recActions.style.display = 'none';
+    renderInlinePhrases();
+  }
+}
+
+function inlineJump(id) {
+  const panel = document.getElementById('inlinePhrasePanel');
+  const el = document.getElementById(id);
+  if (!el || !panel) return;
+  const navH = (document.getElementById('inlinePhraseNavBar') || {}).offsetHeight || 0;
+  // 用 getBoundingClientRect 精確計算
+  const panelRect = panel.getBoundingClientRect();
+  const elRect = el.getBoundingClientRect();
+  const offset = elRect.top - panelRect.top + panel.scrollTop - navH - 8;
+  panel.scrollTo({ top: offset, behavior: 'smooth' });
+  el.style.outline = '2px solid var(--accent)'; el.style.borderRadius = '8px';
+  setTimeout(() => { el.style.outline = ''; el.style.borderRadius = ''; }, 1000);
+}
+
+function saveInlinePhraseName() {
+  try { localStorage.setItem('phraseName', document.getElementById('inlinePhraseName').value); } catch {}
+}
+
+function filterInlinePhrases() {
+  const q = (document.getElementById('inlinePhraseSearch').value || '').toLowerCase().trim();
+  document.querySelectorAll('.inline-phrase-group').forEach(grp => {
+    let vis = 0;
+    grp.querySelectorAll('.inline-phrase-card').forEach(card => {
+      const match = !q || (card.dataset.search || '').includes(q);
+      card.style.display = match ? '' : 'none';
+      if (match) vis++;
+    });
+    grp.style.display = vis > 0 ? '' : 'none';
+  });
+}
+
+function copyInlinePhraseCard(el) {
+  el.blur();
+  let text = el.dataset.text;
+  if (!text) return;
+  const name = (document.getElementById('inlinePhraseName')?.value || '').trim();
+  if (name) text = text + ' - ' + name;
+  safeCopy(text, () => {
+    el.classList.add('copied');
+    const cp = el.querySelector('.inline-copied');
+    if (cp) cp.style.opacity = '1';
+    setTimeout(() => { el.classList.remove('copied'); if (cp) cp.style.opacity = '0'; }, 1200);
+  });
+}
+
+const PHRASES_URL = 'https://raw.githubusercontent.com/Aria-beep-max/aria.github.io/main/phrases.json';
+
+async function loadPhrasesFromGitHub() {
+  const res = await fetch(PHRASES_URL + '?t=' + Date.now());
+  if (!res.ok) throw new Error(res.status);
+  const data = await res.json();
+  if (data.sections) {
+    PHRASE_SECTIONS.length = 0;
+    data.sections.forEach(s => PHRASE_SECTIONS.push(s));
+  }
+  if (data.phrases) {
+    Object.keys(data.phrases).forEach(k => { PHRASE_MAP[k] = data.phrases[k]; });
+  }
+  console.log('[Phrases] Loaded from GitHub');
+}
+
+function renderInlinePhrases() {
+  const container = document.getElementById('inlinePhraseGroups');
+  if (!container || container._rendered) return;
+  container._rendered = true;
+  try { const n = localStorage.getItem('phraseName'); if (n) { const el = document.getElementById('inlinePhraseName'); if (el) el.value = n; } } catch {}
+
+  container.innerHTML = '<div style="text-align:center;color:var(--muted2);padding:20px;font-family:var(--mono);font-size:11px;">載入話術中...</div>';
+  loadPhrasesFromGitHub().then(() => {
+    container.innerHTML = '';
+    _buildPhraseCards(container);
+  }).catch(err => {
+    console.warn('[Phrases] GitHub load failed, using local:', err);
+    container.innerHTML = '';
+    _buildPhraseCards(container);
+  });
+}
+
+function reloadPhrases() {
+  const container = document.getElementById('inlinePhraseGroups');
+  if (!container) return;
+  container._rendered = false;
+  container.innerHTML = '';
+  renderInlinePhrases();
+}
+
+function _buildPhraseCards(container) {
+  // 動態生成跳轉按鈕
+  const jumpContainer = document.getElementById('inlineJumpBtns');
+  if (jumpContainer) {
+    jumpContainer.innerHTML = '';
+    PHRASE_SECTIONS.forEach(section => {
+      const btn = document.createElement('button');
+      btn.textContent = section.icon + ' ' + section.label;
+      btn.style.cssText = 'font-size:10px;padding:3px 12px;border:1px solid var(--border);background:transparent;color:var(--muted2);border-radius:20px;cursor:pointer;font-family:var(--mono);transition:all 0.15s;letter-spacing:0.04em;';
+      btn.onclick = () => inlineJump('inline-' + section.id);
+      jumpContainer.appendChild(btn);
+    });
+  }
+
+  PHRASE_SECTIONS.forEach(section => {
+    const sectionEl = document.createElement('div');
+    sectionEl.id = 'inline-' + section.id;
+    sectionEl.style.cssText = 'padding-top:4px;';
+    const sectionBg = {
+      'section-greeting': 'var(--accent-dim)',
+      'section-settled':  'var(--success-dim)',
+      'section-sa':       'var(--warn-dim)',
+      'section-debug':    'var(--danger-dim)',
+      'section-forward':  'rgba(100,160,255,0.08)'
+    };
+    const sectionBorder = {
+      'section-greeting': 'var(--accent)',
+      'section-settled':  'var(--success)',
+      'section-sa':       'var(--warn)',
+      'section-debug':    'var(--danger)',
+      'section-forward':  '#64a0ff'
+    };
+    const secKey = section.id.replace('inline-','');
+    const bg = sectionBg[secKey] || 'var(--surface2)';
+    const bc = sectionBorder[secKey] || 'var(--accent)';
+    sectionEl.innerHTML = '<div style="font-size:13px;font-weight:700;color:var(--text);font-family:var(--mono);padding:8px 14px;background:'+bg+';border-radius:8px;border-left:4px solid '+bc+';margin-bottom:12px;">'
+      + section.icon + ' ' + section.label + '</div>';
+
+    section.groups.forEach(grp => {
+      const groupDiv = document.createElement('div');
+      groupDiv.className = 'inline-phrase-group';
+      groupDiv.dataset.label = grp.label;
+      groupDiv.style.marginBottom = '16px';
+      let cardsHtml = '';
+      const langs = [
+        { suffix: '_en', label: 'EN', color: '#4CAF50' },
+        { suffix: '_zh', label: '中', color: '#2196F3' },
+        { suffix: '_ko', label: '韓', color: '#FF9800' }
+      ];
+      langs.forEach(lang => {
+        const pkey = grp.key + lang.suffix;
+        const text = PHRASE_MAP[pkey];
+        if (text === undefined) return;
+        cardsHtml +=
+          '<div class="inline-phrase-card" tabindex="-1" data-text="'+escHtml(text)+'" data-search="'+escHtml((grp.label+' '+text).toLowerCase())+'" onclick="copyInlinePhraseCard(this)" '
+          +'style="position:relative;border:1px solid var(--border);border-radius:6px;padding:10px 12px;background:var(--surface);cursor:pointer;transition:all 0.15s;outline:none;">'
+          +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">'
+          +'<span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:4px;background:'+lang.color+';color:#fff;">'+lang.label+'</span>'
+          +'<span class="inline-copied" style="font-size:10px;color:var(--success);opacity:0;transition:opacity 0.2s;">✓ 已複製</span>'
+          +'</div>'
+          +'<div style="font-size:11px;color:'+(text?'var(--text)':'var(--muted2)')+';line-height:1.55;white-space:pre-wrap;word-break:break-word;font-family:var(--mono);">'
+          +(text?escHtml(text):'（尚無內容）')+'</div></div>';
+      });
+      groupDiv.innerHTML =
+        '<div style="font-size:11px;font-weight:600;color:var(--muted2);margin-bottom:8px;font-family:var(--mono);padding-left:2px;">'+grp.icon+' '+grp.label+'</div>'
+        +'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:8px;">'+cardsHtml+'</div>';
+      sectionEl.appendChild(groupDiv);
+    });
+    container.appendChild(sectionEl);
+  });
 }
 
 function showErr(msg) {
