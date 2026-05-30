@@ -1138,7 +1138,10 @@ td:hover .td-note-edit-btn { display: inline-block; }
           <button class="btn-primary" onclick="parseJSON()">▶ 解析資料</button>
           <button onclick="clearAll()">清除</button>
         </div>
-        <input type="text" id="operatorName" placeholder="名字..." style="width:80px;background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:11px;padding:3px 7px;outline:none;" oninput="localStorage.setItem('operatorName',this.value)">
+        <div style="display:flex;gap:4px;align-items:center;">
+          <input type="text" id="operatorEmoji" placeholder="😀" style="width:34px;background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;padding:3px 4px;outline:none;text-align:center;" oninput="localStorage.setItem('operatorEmoji',this.value)">
+          <input type="text" id="operatorName" placeholder="名字..." style="width:80px;background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:11px;padding:3px 7px;outline:none;" oninput="localStorage.setItem('operatorName',this.value)">
+        </div>
       </div>
       <div class="err-box" id="errBox"></div>
 
@@ -1255,6 +1258,7 @@ td:hover .td-note-edit-btn { display: inline-block; }
         <div id="inlineJumpBtns" style="display:flex;gap:4px;align-items:center;flex-shrink:0;"></div>
         <div style="flex:1;"></div>
         <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
+          <input type="text" id="inlinePhraseEmoji" oninput="saveInlinePhraseEmoji()" placeholder="😀" style="background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;padding:4px 4px;outline:none;width:34px;height:26px;box-sizing:border-box;text-align:center;">
           <input type="text" id="inlinePhraseName" oninput="saveInlinePhraseName()" placeholder="✍ 簽名" style="background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:10px;padding:4px 8px;outline:none;width:90px;height:26px;box-sizing:border-box;">
           <input type="text" id="inlinePhraseSearch" oninput="filterInlinePhrases()" placeholder="🔍 搜尋..." style="background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:10px;padding:4px 24px 4px 8px;outline:none;width:140px;height:26px;box-sizing:border-box;">
         </div>
@@ -1302,10 +1306,12 @@ const FIELDS = [
 ];
 
 let records = [];
-// Load operator name
+// Load operator name and emoji
 (function() {
   const saved = localStorage.getItem('operatorName');
   if (saved) { const el = document.getElementById('operatorName'); if(el) el.value = saved; }
+  const savedEmoji = localStorage.getItem('operatorEmoji');
+  if (savedEmoji) { const el = document.getElementById('operatorEmoji'); if(el) el.value = savedEmoji; }
 })();
 
 try { 
@@ -2611,7 +2617,10 @@ function copyBoth() {
   if (box3 && opPrefix) box3 = opPrefix + ' - ' + box3;
   const parts = [box1, box2, box3].filter(Boolean);
   if (!parts.length) { alert('尚無內容可複製'); return; }
-  const text = parts.join('\n');
+  let text = parts.join('\n');
+  const emojiEl = document.getElementById('operatorEmoji');
+  const emoji = emojiEl ? emojiEl.value.trim() : '';
+  if (emoji) text = emoji + ' ' + text;
   safeCopy(text, () => {
     flashBtn('copyScriptBtn');
   });
@@ -3153,6 +3162,10 @@ function inlineJump(id) {
   setTimeout(() => { el.style.outline = ''; el.style.borderRadius = ''; }, 1000);
 }
 
+function saveInlinePhraseEmoji() {
+  try { localStorage.setItem('phraseEmoji', document.getElementById('inlinePhraseEmoji').value); } catch {}
+}
+
 function saveInlinePhraseName() {
   try { localStorage.setItem('phraseName', document.getElementById('inlinePhraseName').value); } catch {}
 }
@@ -3174,7 +3187,9 @@ function copyInlinePhraseCard(el) {
   el.blur();
   let text = el.dataset.text;
   if (!text) return;
+  const emoji = (document.getElementById('inlinePhraseEmoji')?.value || '').trim();
   const name = (document.getElementById('inlinePhraseName')?.value || '').trim();
+  if (emoji) text = emoji + ' ' + text;
   if (name) text = text + ' - ' + name;
   safeCopy(text, () => {
     el.classList.add('copied');
@@ -3205,6 +3220,7 @@ function renderInlinePhrases() {
   if (!container || container._rendered) return;
   container._rendered = true;
   try { const n = localStorage.getItem('phraseName'); if (n) { const el = document.getElementById('inlinePhraseName'); if (el) el.value = n; } } catch {}
+  try { const e = localStorage.getItem('phraseEmoji'); if (e) { const el = document.getElementById('inlinePhraseEmoji'); if (el) el.value = e; } } catch {}
 
   container.innerHTML = '<div style="text-align:center;color:var(--muted2);padding:20px;font-family:var(--mono);font-size:11px;">載入話術中...</div>';
   loadPhrasesFromGitHub().then(() => {
