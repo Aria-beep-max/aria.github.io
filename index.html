@@ -2916,11 +2916,10 @@ function recordNote() {
   } else {
     // Create one record per checked event (in reverse order so first checked appears first)
     checkedItems.reverse().forEach((item, i) => {
-      // 把勾選的那筆 selection 排到第一位,確保右側顯示正確的賽事資料
       const itemIdx = parseInt(item.dataset.idx ?? '0');
       const checkedSel = selData[itemIdx] || selData[0];
-      const otherSels  = selData.filter((_, si) => si !== itemIdx);
-      const orderedSels = checkedSel ? [checkedSel, ...otherSels] : selData;
+      // Each record only contains its own single selection
+      const orderedSels = checkedSel ? [checkedSel] : selData;
       const newRec = {
         id: Date.now() + i + Math.floor(Math.random()*1000), ticketId, betId: betIdVal, reserveId: reserveIdVal,
         eventName: item.dataset.event || '—',
@@ -2942,7 +2941,6 @@ function recordNote() {
   renderTable();
   if (_elapsedUpdate) _elapsedUpdate();
   flashBtn('recordBtn');
-  doSaveRecord(records[0].id);
 }
 let _deletedRecord = null;
 let _focusedRecId = null;
