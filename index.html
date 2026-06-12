@@ -2901,7 +2901,7 @@ function recordNote() {
   });
 
   if (checkedItems.length === 0) {
-    // No selections checked - create one record with no specific event
+    // No selections checked - create one record with all selections
     const newRec = {
       id: Date.now() + Math.floor(Math.random()*1000), ticketId, betId: betIdVal, reserveId: reserveIdVal,
       eventName: selData[0]?.eventName || '—', eventId: '',
@@ -2914,12 +2914,13 @@ function recordNote() {
     };
     records.unshift(newRec);
   } else {
-    // Create one record per checked event (in reverse order so first checked appears first)
+    // Create one record per checked event. Each record's expand shows ALL selections (full combo).
     checkedItems.reverse().forEach((item, i) => {
       const itemIdx = parseInt(item.dataset.idx ?? '0');
       const checkedSel = selData[itemIdx] || selData[0];
-      // Each record only contains its own single selection
-      const orderedSels = checkedSel ? [checkedSel] : selData;
+      // Put checked selection first, then the rest of the combo
+      const otherSels = selData.filter((_, si) => si !== itemIdx);
+      const orderedSels = checkedSel ? [checkedSel, ...otherSels] : selData;
       const newRec = {
         id: Date.now() + i + Math.floor(Math.random()*1000), ticketId, betId: betIdVal, reserveId: reserveIdVal,
         eventName: item.dataset.event || '—',
